@@ -24,6 +24,19 @@ Includes 6 reference documents covering every aspect of plugin development:
 
 Also includes [evaluation benchmarks](skills/woocommerce-plugin-dev/evals/evals.json) with 3 test scenarios.
 
+**[WooCommerce Finalization](skills/woocommerce-finalize/SKILL.md)** — Pre-release code health and traceability audit. Runs after code review to catch structural issues that checklists miss:
+
+- **Code Health** — dead code detection, duplication analysis, structural complexity (god classes, deep nesting)
+- **Traceability Analysis** — end-to-end verification tracing every UI interaction through AJAX/REST handlers, business logic, data access, and database. Includes 5 payment-gateway-specific trace paths (payment, refund, settings, token, webhook flows)
+
+**[WooCommerce Upgrade Safety](skills/woocommerce-upgrade-safety/SKILL.md)** — Pre-release upgrade safety review that validates what happens when existing merchants upgrade between versions:
+
+- **Database Migration Safety** — idempotency, batching, version gates, HPOS dual-table compatibility
+- **Payment Continuity** — saved token preservation, active subscription safety, pending transaction handling, webhook backward compatibility
+- **Hook/Filter Compatibility** — removed hooks, changed signatures, deprecation notices
+- **Rollback Safety** — downgrade resilience, WordPress auto-update safety
+- **Changelog Quality** — upgrade notices, breaking change documentation, version metadata
+
 ### Agents
 
 **[WooCommerce UX Reviewer](agents/woocommerce-ux-reviewer.md)** — An expert UX review agent specialized in WordPress, WooCommerce, and payment system interfaces. Reviews checkout flows, payment gateway integrations, admin UI, onboarding experiences, and error states against dimensions including clarity, trust signals, accessibility (WCAG 2.1 AA), mobile responsiveness, and conversion impact.
@@ -46,14 +59,16 @@ Clone this repository:
 git clone https://github.com/Automattic/claude-woocommerce-toolkit.git
 ```
 
-**Install the skill** (copy or symlink into your Claude Code skills directory):
+**Install skills** (copy or symlink into your Claude Code skills directory):
 
 ```bash
 # Global installation (available in all projects)
 cp -r claude-woocommerce-toolkit/skills/woocommerce-plugin-dev ~/.claude/skills/
+cp -r claude-woocommerce-toolkit/skills/woocommerce-finalize ~/.claude/skills/
+cp -r claude-woocommerce-toolkit/skills/woocommerce-upgrade-safety ~/.claude/skills/
 
 # Project-level installation (available only in one project)
-cp -r claude-woocommerce-toolkit/skills/woocommerce-plugin-dev /path/to/your/project/.claude/skills/
+cp -r claude-woocommerce-toolkit/skills/* /path/to/your/project/.claude/skills/
 ```
 
 **Install the agents** (copy or symlink into your Claude Code agents directory):
