@@ -6,7 +6,7 @@ A collection of Claude Code skills and agents for building, reviewing, and maint
 
 ### Skills
 
-**[WooCommerce Plugin Development](skills/woocommerce-plugin-dev/SKILL.md)** — A comprehensive skill that guides you through building marketplace-ready WooCommerce plugins from scratch. It operates in two phases:
+**[WooCommerce Plugin Development](skills/woocommerce-plugin-dev/SKILL.md)** — A comprehensive skill that guides you through building WooCommerce Marketplace-ready plugins from scratch. It operates in two phases:
 
 1. **Project Discovery** — structured interview to produce a project brief
 2. **Development Execution** — scaffold and build following all standards
@@ -26,7 +26,7 @@ Also includes [evaluation benchmarks](skills/woocommerce-plugin-dev/evals/evals.
 
 ### Agents
 
-**[UX WooCommerce Payments Reviewer](agents/ux-woo-payments-reviewer.md)** — An expert UX review agent specialized in WordPress, WooCommerce, and payment system interfaces. Reviews checkout flows, payment gateway integrations, admin UI, onboarding experiences, and error states against dimensions including clarity, trust signals, accessibility (WCAG 2.1 AA), mobile responsiveness, and conversion impact.
+**[WooCommerce UX Reviewer](agents/woocommerce-ux-reviewer.md)** — An expert UX review agent specialized in WordPress, WooCommerce, and payment system interfaces. Reviews checkout flows, payment gateway integrations, admin UI, onboarding experiences, and error states against dimensions including clarity, trust signals, accessibility (WCAG 2.1 AA), mobile responsiveness, and conversion impact.
 
 **[Code Reviewer](agents/code-reviewer.md)** — A general-purpose code review agent that evaluates code across six dimensions: correctness, security, performance, code quality, test coverage, and project standards alignment. Not WordPress-specific, but works well in any WooCommerce project context.
 

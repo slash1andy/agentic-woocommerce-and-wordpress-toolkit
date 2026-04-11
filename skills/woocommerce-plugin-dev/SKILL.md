@@ -14,7 +14,7 @@ description: >
 
 # WooCommerce Plugin Development Skill
 
-This skill ensures that every WooCommerce plugin you build meets professional, marketplace-ready
+This skill ensures that every WooCommerce plugin you build meets professional, WooCommerce Marketplace-ready
 standards from day one. It covers architecture, coding standards, security, testing, and UX —
 drawing from the official WordPress Plugin Handbook, WooCommerce developer documentation, and
 fintech-grade security practices.

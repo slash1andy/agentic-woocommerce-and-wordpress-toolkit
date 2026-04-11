@@ -51,7 +51,7 @@ Copy the agent definition files:
 ```bash
 # Global
 mkdir -p ~/.claude/agents
-cp agents/ux-woo-payments-reviewer.md ~/.claude/agents/
+cp agents/woocommerce-ux-reviewer.md ~/.claude/agents/
 cp agents/code-reviewer.md ~/.claude/agents/
 
 # OR project-level
@@ -79,7 +79,7 @@ Both agents should announce themselves and follow their structured review method
 
 Both agents support persistent memory — they remember patterns, conventions, and feedback across conversations. The memory directories are created automatically on first use:
 
-- `~/.claude/agent-memory/ux-woo-payments-reviewer/`
+- `~/.claude/agent-memory/woocommerce-ux-reviewer/`
 - `~/.claude/agent-memory/code-reviewer/`
 
 No setup required. The agents will create these directories when they first need to save a memory.
@@ -104,7 +104,7 @@ If you prefer to stay in sync with the repo without re-copying, use symlinks:
 ln -sf "$(pwd)/skills/woocommerce-plugin-dev" ~/.claude/skills/woocommerce-plugin-dev
 
 # Agents (symlink individual files)
-ln -sf "$(pwd)/agents/ux-woo-payments-reviewer.md" ~/.claude/agents/ux-woo-payments-reviewer.md
+ln -sf "$(pwd)/agents/woocommerce-ux-reviewer.md" ~/.claude/agents/woocommerce-ux-reviewer.md
 ln -sf "$(pwd)/agents/code-reviewer.md" ~/.claude/agents/code-reviewer.md
 ```
 

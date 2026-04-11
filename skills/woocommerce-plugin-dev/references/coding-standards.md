@@ -372,6 +372,9 @@ Use the WordPress Coding Standards v3.3.0+ and WooCommerce sniffs. Create `phpcs
 	<config name="testVersion" value="8.0-"/>
 
 	<rule ref="WordPress">
+		<!-- PSR-4 autoloading uses PascalCase filenames (e.g. Settings_Page.php)
+		     instead of the WordPress class-*.php convention. This exclusion is
+		     required for PSR-4 compliance and does not weaken security checks. -->
 		<exclude name="WordPress.Files.FileName.InvalidClassFileName"/>
 	</rule>
 	<rule ref="WooCommerce"/>
