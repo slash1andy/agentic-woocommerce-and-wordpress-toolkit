@@ -194,7 +194,7 @@ $customer->save();
 | `woocommerce_cart_calculate_fees` | Cart fees | Add surcharges or discounts |
 | `woocommerce_package_rates` | Shipping rates | Modify available shipping |
 | `woocommerce_available_payment_gateways` | Payment options | Conditionally show/hide gateways |
-| `woocommerce_checkout_fields` | Checkout fields | Add/remove/modify fields |
+| `woocommerce_checkout_fields` | Classic checkout fields — does NOT fire in block checkout | Modify fields on classic shortcode checkout only (to *add* fields, use the Additional Checkout Fields API) |
 | `woocommerce_order_actions` | Order actions dropdown | Add custom order actions |
 | `woocommerce_product_data_tabs` | Product data tabs | Add custom product tabs |
 | `woocommerce_get_settings_pages` | Settings pages | Add settings tabs |
@@ -314,6 +314,42 @@ Store API instead of relying on classic checkout hooks.
 
 **Key difference:** The Store API uses stateless REST endpoints rather than session-based
 checkout, and it does NOT fire classic checkout PHP hooks.
+
+The Store API is namespaced **`wc/store/v1`** (e.g. `/wp-json/wc/store/v1/cart`). `v1` is currently
+the only version; a breaking change would force a new namespace version. It is also the canonical
+surface for headless / front-end and programmatic clients — including the agentic-checkout work in
+`references/agentic-commerce.md`.
+
+### Adding Checkout Fields (Additional Checkout Fields API)
+
+To **add a field** to the checkout, use the Additional Checkout Fields API
+(`woocommerce_register_additional_checkout_field()`, WooCommerce 8.9+) — **not** the classic
+`woocommerce_checkout_fields` filter, which does not fire in block checkout. Register on
+`woocommerce_init`; each field lives in exactly one of three locations:
+
+```php
+add_action( 'woocommerce_init', function () {
+	woocommerce_register_additional_checkout_field(
+		array(
+			'id'       => 'plugin-slug/marketing-opt-in', // Namespaced.
+			'label'    => __( 'Subscribe to our newsletter?', 'plugin-slug' ),
+			'location' => 'contact', // 'contact' | 'address' | 'order'.
+			'type'     => 'checkbox', // 'text' | 'select' | 'checkbox'.
+			'required' => false,
+		)
+	);
+} );
+```
+
+- **`contact`** — renders in the contact section; saved to the customer account and the order.
+- **`address`** — renders in shipping *and* billing; saved per-address to the customer and order.
+- **`order`** — renders in the "Order information" inner block; saved to the order only.
+
+Read saved values with the WooCommerce helper methods rather than raw meta keys. See the official
+guide: https://developer.woocommerce.com/docs/block-development/extensible-blocks/cart-and-checkout-blocks/additional-checkout-fields/
+
+Use **`ExtendSchema`** (below) for the lower-level case of attaching arbitrary custom *data* to Store
+API responses, rather than registering a user-facing field.
 
 ### ExtendSchema API
 

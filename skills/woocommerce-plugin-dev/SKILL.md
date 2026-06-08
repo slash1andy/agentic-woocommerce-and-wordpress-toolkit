@@ -75,10 +75,14 @@ have a dialogue.
 - Does it need background processing or scheduled tasks (WP-Cron / Action Scheduler)?
 - Does it expose or consume REST API endpoints?
 - Does it need to work with the block-based Cart and Checkout? (If it touches cart/checkout: yes.)
-- Does it add product data panels? (If yes: must support the Product Block Editor.)
+- Does it add product data panels? (If yes: use the classic product editor — the block-based Product
+  Editor is being removed in WooCommerce 11.0.)
 - Does it provide frontend templates or blocks? (If yes: must work with the Site Editor.)
 - HPOS (High-Performance Order Storage) compatibility is mandatory — always declare it.
 - Does it need to extend the Store API for block checkout integration?
+- Should it be **agent-ready** — expose a machine-readable product feed, a sessionless/programmatic
+  checkout, or register WordPress Abilities / MCP tools for AI shopping agents? (See the
+  agentic-commerce and abilities-and-mcp references.)
 
 **Data & Compliance:**
 - What user/customer data does the plugin collect, store, or transmit?
@@ -110,12 +114,13 @@ After the interview, compile all answers into a `PROJECT_BRIEF.md` file with thi
 ## Technical Requirements
 - Minimum WordPress version: X.X
 - Minimum WooCommerce version: X.X
-- Minimum PHP version: 8.0
+- Minimum PHP version: 8.1
 - HPOS compatible: Yes (mandatory)
 - Cart & Checkout Blocks compatible: [Yes/No]
-- Product Block Editor compatible: [Yes/No]
+- Product editor: classic (the block-based Product Editor is removed in WC 11.0)
 - Site Editor compatible: [Yes/No]
 - Store API extensions needed: [Yes/No — describe if yes]
+- Agentic / AI-agent readiness: [No / which path: WooCommerce MCP + Abilities / Stripe ACS / community ACP]
 - Custom database tables: [Yes/No — list if yes]
 - External API integrations: [List]
 - Background processing: [Yes/No — describe if yes]
@@ -233,7 +238,7 @@ Set up GitHub Actions workflows that run:
 - PHPStan or Psalm for static analysis (level 6+ minimum)
 - PHPUnit test suite
 - Playwright E2E suite against a wp-env environment
-- WooCommerce QIT compatibility checks
+- WooCommerce QIT managed tests (run locally before submission — see `references/marketplace-submission.md`)
 
 ---
 
@@ -250,6 +255,10 @@ that aspect of the plugin.
 | `references/plugin-architecture.md` | When scaffolding the plugin or adding new components |
 | `references/woocommerce-apis.md` | When integrating with WooCommerce data stores, hooks, or REST API |
 | `references/ux-guidelines.md` | When building admin UI, settings pages, or frontend components |
+| `references/abilities-and-mcp.md` | When exposing operations to AI agents (WordPress Abilities API + MCP) |
+| `references/agentic-commerce.md` | When the plugin should be discoverable or buyable by AI shopping agents |
+| `references/pci-script-management.md` | When the plugin handles payments (PCI DSS v4.0.1 payment-page scripts) |
+| `references/marketplace-submission.md` | Before submitting to the WooCommerce Marketplace or WordPress.org (QIT, distribution) |
 
 ---
 
@@ -284,8 +293,8 @@ These apply to every single file in the project, no exceptions:
 9. **Follow WordPress enqueue system.** Never inline scripts or styles except when absolutely
    necessary. Use `wp_enqueue_script` / `wp_enqueue_style` with proper dependencies.
 
-10. **Declare all WooCommerce feature compatibility.** HPOS (`custom_order_tables`),
-    Cart & Checkout Blocks (`cart_checkout_blocks`), and Product Block Editor
-    (`product_block_editor`) — declare support for everything applicable via
-    `before_woocommerce_init` using `FeaturesUtil::declare_compatibility()`. Test thoroughly
-    with each feature enabled before declaring compatibility.
+10. **Declare all WooCommerce feature compatibility.** HPOS (`custom_order_tables`) and
+    Cart & Checkout Blocks (`cart_checkout_blocks`) — declare support for everything applicable via
+    `before_woocommerce_init` using `FeaturesUtil::declare_compatibility()`, and test thoroughly with
+    each feature enabled before declaring it. Do **not** declare `product_block_editor`: the block-based
+    Product Editor is being removed in WooCommerce 11.0 (build against the classic product editor).
