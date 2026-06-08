@@ -294,7 +294,7 @@ chains, and follows modern PHP best practices.
 		}
 	},
 	"require": {
-		"php": ">=8.0"
+		"php": ">=8.1"
 	},
 	"config": {
 		"allow-plugins": {
@@ -305,11 +305,17 @@ chains, and follows modern PHP best practices.
 		"phpunit/phpunit": "^9.5 || ^10.0",
 		"wp-coding-standards/wpcs": "^3.3",
 		"phpcompatibility/phpcompatibility-wp": "*",
-		"phpstan/phpstan": "^1.10",
+		"phpstan/phpstan": "^2.1",
 		"woocommerce/woocommerce-sniffs": "*"
 	}
 }
 ```
+
+> **Keep dev dependencies current, with two caveats.** Pin `woocommerce/woocommerce-sniffs` to a
+> specific release (verify the latest on Packagist) rather than the `*` wildcard, which can pull a
+> breaking change into CI unannounced. And the `phpunit/phpunit` constraint intentionally trails the
+> upstream major — align it to the PHPUnit version the WordPress/WooCommerce core test suite bootstraps
+> against, rather than chasing the newest PHPUnit release.
 
 ### Namespace structure
 
@@ -368,8 +374,8 @@ Use the WordPress Coding Standards v3.3.0+ and WooCommerce sniffs. Create `phpcs
 	<arg name="colors"/>
 	<arg value="ps"/>
 
-	<config name="minimum_wp_version" value="6.4"/>
-	<config name="testVersion" value="8.0-"/>
+	<config name="minimum_wp_version" value="6.7"/>
+	<config name="testVersion" value="8.1-"/>
 
 	<rule ref="WordPress">
 		<!-- PSR-4 autoloading uses PascalCase filenames (e.g. Settings_Page.php)

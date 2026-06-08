@@ -25,6 +25,12 @@ decisions for building a well-structured WooCommerce plugin.
 The main plugin file is the entry point. It should be minimal — define constants, check
 dependencies, and delegate to the Plugin bootstrap class.
 
+> **Keep the version metadata current.** The `Requires at least` / `Requires PHP` /
+> `WC requires at least` / `WC tested up to` values below are a *dated baseline* (set them to a recent
+> floor and the latest release you've tested against — at the time of writing, WordPress is on the 7.x
+> line, WooCommerce on the 10.x line, and PHP 8.0 has reached end-of-life so a new plugin should floor
+> at 8.1+). Verify the current values before you ship; the upgrade-safety skill checks them.
+
 ```php
 <?php
 /**
@@ -32,16 +38,16 @@ dependencies, and delegate to the Plugin bootstrap class.
  * Plugin URI:        https://example.com/plugin-slug
  * Description:       A brief description of what the plugin does.
  * Version:           1.0.0
- * Requires at least: 6.4
- * Requires PHP:      8.0
+ * Requires at least: 6.7
+ * Requires PHP:      8.1
  * Author:            Author Name
  * Author URI:        https://example.com
  * License:           GPL v2 or later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain:       plugin-slug
  * Domain Path:       /languages
- * WC requires at least: 8.5
- * WC tested up to:      9.4
+ * WC requires at least: 9.0
+ * WC tested up to:      10.8
  *
  * @package PluginSlug
  */
@@ -66,7 +72,9 @@ if ( file_exists( __DIR__ . '/vendor/autoload.php' ) ) {
  * All new plugins MUST declare compatibility with these WooCommerce features:
  * - custom_order_tables (HPOS) — mandatory for all new plugins
  * - cart_checkout_blocks — required if plugin touches cart/checkout
- * - product_block_editor — required if plugin adds product data panels
+ *
+ * Do NOT declare product_block_editor: the block-based Product Editor beta is being removed
+ * from WooCommerce core in 11.0 — build product data panels against the classic editor.
  *
  * @see https://developer.woocommerce.com/docs/extensions/best-practices-extensions/
  */
@@ -88,14 +96,10 @@ add_action( 'before_woocommerce_init', function () {
 			true
 		);
 
-		// Product Block Editor compatibility.
-		// Set to true if your plugin works with the new product editor.
-		// Required if your plugin adds product data tabs or panels.
-		\Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility(
-			'product_block_editor',
-			__FILE__,
-			true
-		);
+		// NOTE: Do not declare 'product_block_editor'. The block-based Product Editor beta is
+		// being removed from WooCommerce core in 11.0 (final deprecation window opens in 10.9).
+		// Build product data panels against the classic editor instead — see the Product Editor
+		// section below.
 	}
 } );
 
@@ -117,13 +121,13 @@ add_action( 'plugins_loaded', function () {
 	}
 
 	// Check minimum WooCommerce version.
-	if ( version_compare( WC_VERSION, '8.5', '<' ) ) {
+	if ( version_compare( WC_VERSION, '9.0', '<' ) ) {
 		add_action( 'admin_notices', function () {
 			echo '<div class="error"><p>';
 			printf(
 				/* translators: %s: Required WooCommerce version */
 				esc_html__( 'Plugin Display Name requires WooCommerce %s or higher.', 'plugin-slug' ),
-				'8.5'
+				'9.0'
 			);
 			echo '</p></div>';
 		} );
@@ -256,10 +260,10 @@ final class Plugin {
 	public static function activate(): void {
 		// Create custom tables, set default options, schedule cron events.
 		// Check PHP and WordPress version requirements.
-		if ( version_compare( PHP_VERSION, '8.0', '<' ) ) {
+		if ( version_compare( PHP_VERSION, '8.1', '<' ) ) {
 			deactivate_plugins( PLUGIN_SLUG_BASENAME );
 			wp_die(
-				esc_html__( 'This plugin requires PHP 8.0 or higher.', 'plugin-slug' ),
+				esc_html__( 'This plugin requires PHP 8.1 or higher.', 'plugin-slug' ),
 				'Plugin activation error',
 				array( 'back_link' => true )
 			);
@@ -329,13 +333,17 @@ block-based Cart and Checkout. Key compatibility points:
 - Use `Inner Blocks` and `Slot and Fill` patterns for custom block checkout UI
 - Declare `cart_checkout_blocks` compatibility only after thorough testing
 
-### Product Block Editor Compatibility
+### Product Editor
 
-If your plugin adds product data panels or tabs, it must work with the new product editor:
+Build product data panels and tabs against the **classic** product editor — the long-stable,
+supported surface:
 
-- Declare `product_block_editor` compatibility via FeaturesUtil
-- Test that product data panels render correctly in the block editor
-- Use the product editor extensibility API for custom product fields
+- Use `woocommerce_product_data_tabs` and `woocommerce_product_data_panels` to add custom fields
+- Save product data via WooCommerce CRUD (`$product->update_meta_data()` / `$product->save()`)
+- **Do not** declare `product_block_editor` compatibility or build against `@woocommerce/product-editor`:
+  the block-based Product Editor beta is being **removed from WooCommerce core in 11.0**, with the final
+  deprecation window opening in 10.9. See
+  https://developer.woocommerce.com/2026/06/02/product-editor-beta-retiring/
 
 ### Site Editor Compatibility
 

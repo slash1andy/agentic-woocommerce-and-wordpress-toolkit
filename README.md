@@ -11,7 +11,7 @@ A collection of Claude Code skills and agents for building, reviewing, and maint
 1. **Project Discovery** — structured interview to produce a project brief
 2. **Development Execution** — scaffold and build following all standards
 
-Includes 6 reference documents covering every aspect of plugin development:
+Includes 10 reference documents covering every aspect of plugin development:
 
 | Reference | What It Covers |
 |-----------|---------------|
@@ -19,8 +19,12 @@ Includes 6 reference documents covering every aspect of plugin development:
 | [Security](skills/woocommerce-plugin-dev/references/security.md) | Input sanitization, output escaping, nonces, CSRF, SQL injection prevention, PCI-DSS |
 | [Testing](skills/woocommerce-plugin-dev/references/testing.md) | PHPUnit, Playwright E2E, security tests, financial precision tests, CI/CD |
 | [Plugin Architecture](skills/woocommerce-plugin-dev/references/plugin-architecture.md) | File structure, bootstrapping, HPOS declaration, uninstall handlers |
-| [WooCommerce APIs](skills/woocommerce-plugin-dev/references/woocommerce-apis.md) | Order/Product CRUD, hooks, REST API, Store API, Action Scheduler |
+| [WooCommerce APIs](skills/woocommerce-plugin-dev/references/woocommerce-apis.md) | Order/Product CRUD, hooks, REST API, Store API, Additional Checkout Fields, Action Scheduler |
 | [UX Guidelines](skills/woocommerce-plugin-dev/references/ux-guidelines.md) | Navigation, settings design, onboarding, admin notices, accessibility |
+| [Abilities & MCP](skills/woocommerce-plugin-dev/references/abilities-and-mcp.md) | Exposing operations to AI agents via the WordPress Abilities API + MCP Adapter |
+| [Agentic Commerce](skills/woocommerce-plugin-dev/references/agentic-commerce.md) | AI-agent discovery & checkout readiness (Abilities/MCP, ACP, AP2) |
+| [PCI Script Management](skills/woocommerce-plugin-dev/references/pci-script-management.md) | PCI DSS v4.0.1 payment-page script requirements (6.4.3 / 11.6.1) |
+| [Marketplace Submission](skills/woocommerce-plugin-dev/references/marketplace-submission.md) | QIT managed tests, Marketplace + WordPress.org distribution |
 
 Also includes [evaluation benchmarks](skills/woocommerce-plugin-dev/evals/evals.json) with 3 test scenarios.
 

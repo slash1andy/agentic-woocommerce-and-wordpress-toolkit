@@ -265,9 +265,10 @@ and Playwright as the test runner.
 // package.json
 {
 	"devDependencies": {
-		"@playwright/test": "^1.40",
-		"@wordpress/env": "^9.0",
-		"@woocommerce/e2e-utils": "^0.1"
+		"@playwright/test": "^1.60",
+		"@wordpress/env": "^11.0",
+		"@wordpress/e2e-test-utils-playwright": "^1.0",
+		"@woocommerce/e2e-utils-playwright": "^0.4"
 	},
 	"scripts": {
 		"env:start": "wp-env start",
@@ -277,6 +278,17 @@ and Playwright as the test runner.
 	}
 }
 ```
+
+> **Use the modern Playwright fixtures, not the Puppeteer-era utilities.** `@woocommerce/e2e-utils`
+> (and `e2e-environment`) are deprecated; prefer the `@wordpress/e2e-test-utils-playwright` fixtures
+> (`admin`, `editor`, `pageUtils`, `requestUtils`) plus the Woo-specific
+> `@woocommerce/e2e-utils-playwright`. Verify these versions against npm and WooCommerce core's
+> `package.json` at setup — the Woo package is pre-1.0 and may introduce breaking changes. If you target
+> PHPUnit 10, also update `phpunit.xml.dist` to the 10 schema (the `convert*` root attributes are removed
+> and coverage `<include>` moves under `<source>`). For a Docker-free environment, `@wordpress/env` can
+> run on WordPress Playground, and `@wp-playground/cli` provides ephemeral throwaway sites. For
+> **WooCommerce Marketplace** distribution, package custom E2E as a QIT Test Package and pass the QIT
+> managed test suite — see `references/marketplace-submission.md`.
 
 ### playwright.config.ts
 
@@ -516,9 +528,9 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        php: ['8.0', '8.1', '8.2', '8.3']
-        wp: ['6.4', '6.5', 'latest']
-        wc: ['8.5', '9.0', 'latest']
+        php: ['8.1', '8.2', '8.3', '8.4']
+        wp: ['6.7', '6.9', 'latest']
+        wc: ['9.0', '10.8', 'latest']
     steps:
       - uses: actions/checkout@v4
       - uses: shivammathur/setup-php@v2
@@ -543,3 +555,10 @@ jobs:
       - run: npm run env:start
       - run: npm run test:e2e
 ```
+
+> **Also exercise HPOS in CI.** HPOS is the default order backend for new stores (since WC 8.2) and is
+> this toolkit's #1 non-negotiable, so the matrix should validate it: enable High-Performance Order
+> Storage with compatibility mode **off** in at least one E2E run and assert that order reads/writes via
+> CRUD still work. Before submitting to the WooCommerce Marketplace, also run the QIT managed tests
+> locally (`references/marketplace-submission.md`) — QIT is the gate that the listing and every update
+> must pass.

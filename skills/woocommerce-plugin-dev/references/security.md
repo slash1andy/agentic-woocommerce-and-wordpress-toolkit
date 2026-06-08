@@ -282,6 +282,15 @@ dbDelta( $sql );
 
 ## API Security
 
+### REST Endpoint Authorization
+
+- **Never** use `'permission_callback' => '__return_true'` on any route that returns or mutates
+  merchant, customer, order, or payment data — an open `permission_callback` is a leading cause of
+  WordPress plugin REST vulnerabilities. Gate reads on an appropriate `current_user_can()` capability,
+  and gate admin writes on **both** a capability check and nonce verification.
+- The same rule applies to WordPress Abilities exposed to AI agents: every executable ability needs a
+  real `permission_callback` and MCP discovery does not bypass it (see `references/abilities-and-mcp.md`).
+
 ### Outbound API Calls
 
 - Use `wp_remote_get()` / `wp_remote_post()` (never `cURL` directly)
@@ -292,10 +301,36 @@ dbDelta( $sql );
 
 ### Inbound Webhooks
 
-- Verify webhook signatures / HMAC
+- Verify webhook signatures with a **timing-safe** comparison (`hash_equals()`), never `==` / `===`
+- Protect against replay: reject stale timestamps and de-duplicate on the provider's event ID (idempotency)
 - Validate the payload schema before processing
 - Respond with 200 quickly, then process asynchronously via Action Scheduler
 - Rate-limit incoming webhooks
+
+```php
+// Timing-safe HMAC verification over the raw request body.
+$payload   = file_get_contents( 'php://input' );
+$signature = isset( $_SERVER['HTTP_X_SIGNATURE'] )
+	? sanitize_text_field( wp_unslash( $_SERVER['HTTP_X_SIGNATURE'] ) )
+	: '';
+$expected  = base64_encode( hash_hmac( 'sha256', $payload, $webhook_secret, true ) );
+
+if ( ! hash_equals( $expected, $signature ) ) {
+	status_header( 401 );
+	exit;
+}
+
+// Replay / idempotency: skip if this event was already processed.
+if ( get_transient( 'plugin_slug_evt_' . $event_id ) ) {
+	status_header( 200 );
+	exit;
+}
+set_transient( 'plugin_slug_evt_' . $event_id, 1, DAY_IN_SECONDS );
+```
+
+> For webhooks WooCommerce itself sends, note that WooCommerce passes the configured secret through
+> `wp_specialchars_decode()` before signing, and the `X-WC-Webhook-Signature` header is a base64
+> HMAC-SHA256 of the payload.
 
 ---
 
@@ -319,6 +354,22 @@ For plugins that handle prices, payments, or financial transactions:
 - Use tokenization through payment gateways
 - Transmit payment data only over HTTPS
 - Log access to payment-related functionality
+- Meet the PCI DSS v4.0.1 payment-page **script-management** requirements — 6.4.3 (script
+  authorization, integrity, and inventory) and 11.6.1 (payment-page tamper detection), mandatory since
+  31 March 2025. Keep the PAN out of the merchant DOM and minimize scripts on checkout. See
+  `references/pci-script-management.md`.
+
+---
+
+## WordPress Core Security Baseline
+
+Build on the platform's primitives rather than reimplementing weaker equivalents:
+
+- WordPress core hashes passwords with **bcrypt** (and application passwords / reset keys with BLAKE2b)
+  in recent releases — use the core auth APIs rather than rolling your own credential hashing.
+- Prefer the WordPress core **HTML API** over hand-rolled HTML string manipulation for safer output.
+- Store gateway secrets in a `WC_Payment_Gateway` password-type field (or an option with `autoload=no`),
+  never in code and never in logs.
 
 ---
 

@@ -45,6 +45,20 @@
         "All string output in the response uses proper escaping",
         "Registers the route in rest_api_init hook"
       ]
+    },
+    {
+      "id": 4,
+      "prompt": "I'm building a WooCommerce gateway-companion plugin and I want it to be ready for AI shopping agents. I'd like to expose a read-only 'recent orders' operation that an AI assistant can call through the WooCommerce MCP server. How should I build that?",
+      "expected_output": "Should register a WordPress Ability on the wp_abilities_api_init hook via wp_register_ability() with input/output schema and a real permission_callback, default to read-only, use WooCommerce CRUD inside execute_callback, and expose it through the WooCommerce MCP server via the woocommerce_mcp_include_ability filter (or meta.mcp.public for the generic MCP Adapter default server). Should NOT expose secrets or use an open permission check.",
+      "files": [],
+      "expectations": [
+        "Registers the ability on the wp_abilities_api_init hook, guarded by function_exists('wp_register_ability')",
+        "Defines input_schema and output_schema for the ability",
+        "Gates the ability with a real permission_callback (e.g. current_user_can('edit_shop_orders') or 'manage_woocommerce'), not an open check",
+        "Uses WooCommerce CRUD (wc_get_orders / $order->get_*) inside execute_callback, not get_post_meta()",
+        "Exposes the ability via the woocommerce_mcp_include_ability filter or the meta.mcp.public flag",
+        "Keeps the ability read-only and does not return secrets or credentials"
+      ]
     }
   ]
 }
