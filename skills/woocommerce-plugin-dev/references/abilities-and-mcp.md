@@ -56,11 +56,11 @@ AI feature.
 
 ## Registering an Ability
 
-Register abilities on the `wp_abilities_api_init` hook with `wp_register_ability()`. Always guard on
+Register abilities on the `abilities_api_init` hook with `wp_register_ability()`. Always guard on
 `function_exists()` so the plugin degrades gracefully on sites without the API.
 
 ```php
-add_action( 'wp_abilities_api_init', function () {
+add_action( 'abilities_api_init', function () {
 	if ( ! function_exists( 'wp_register_ability' ) ) {
 		return;
 	}
@@ -182,7 +182,7 @@ product and order abilities.
 ## The WooCommerce Path
 
 A complete, minimal WooCommerce ability looks like the official demo: register on
-`wp_abilities_api_init`, gate on a WooCommerce capability, and include it in the WooCommerce MCP server
+`abilities_api_init`, gate on a WooCommerce capability, and include it in the WooCommerce MCP server
 via the filter above.
 
 ```php
@@ -201,7 +201,7 @@ namespace PluginSlug;
 
 defined( 'ABSPATH' ) || exit;
 
-add_action( 'wp_abilities_api_init', __NAMESPACE__ . '\\register_abilities' );
+add_action( 'abilities_api_init', __NAMESPACE__ . '\\register_abilities' );
 add_filter( 'woocommerce_mcp_include_ability', __NAMESPACE__ . '\\include_in_mcp', 10, 2 );
 
 function register_abilities(): void {
@@ -296,7 +296,7 @@ transport, authentication, and custom-server configuration.
 
 ## Checklist
 
-- [ ] Abilities registered on `wp_abilities_api_init`, guarded by `function_exists( 'wp_register_ability' )`.
+- [ ] Abilities registered on `abilities_api_init`, guarded by `function_exists( 'wp_register_ability' )`.
 - [ ] Namespaced names (`plugin-slug/...`), with `input_schema` and `output_schema`.
 - [ ] A real `permission_callback` on every ability; read-only by default; secrets never returned.
 - [ ] Commerce abilities opted into the WooCommerce MCP server via `woocommerce_mcp_include_ability`

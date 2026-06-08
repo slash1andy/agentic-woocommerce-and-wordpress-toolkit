@@ -35,7 +35,7 @@ layer driven by external protocols and platform partners.
 ## Track 1 — Agent operation via Abilities + MCP
 
 This is fully covered in `references/abilities-and-mcp.md`. In short: register your extension's safe
-operations as **Abilities** (`wp_register_ability` on `wp_abilities_api_init`), gate each with a real
+operations as **Abilities** (`wp_register_ability` on `abilities_api_init`), gate each with a real
 `permission_callback`, default to read-only, and opt commerce abilities into the **WooCommerce MCP
 server** (`woocommerce_mcp_include_ability`). WooCommerce shipped MCP as a beta in 10.3 and introduced
 canonical product/order abilities in 10.9; extension-owned read abilities (subscriptions, payments,
