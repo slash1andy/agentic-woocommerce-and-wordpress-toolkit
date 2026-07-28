@@ -101,8 +101,11 @@ class P0ContractsTest(unittest.TestCase):
                 self.assertIn("cannot expand tool scope", text)
 
         usage = "\n".join((read(ROOT / "README.md"), read(INSTALLATION)))
-        self.assertIn("/woocommerce-plugin-dev", usage)
-        self.assertNotRegex(usage, r"(?i)skill triggers automatically|try a trigger phrase")
+        self.assertIn("/claude-woocommerce-toolkit:woocommerce-plugin-dev", usage)
+        self.assertNotRegex(
+            usage,
+            r"(?i)(?:agent|skill).{0,40}(?:trigger(?:s|ed)?|invoked) automatically|automatically (?:trigger(?:s|ed)?|invoked)",
+        )
 
     def test_cross_skill_reference_routes_exist(self):
         expected = {

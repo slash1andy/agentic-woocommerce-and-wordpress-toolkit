@@ -1,0 +1,11 @@
+{
+  "name": "claude-woocommerce-toolkit",
+  "version": "1.0.0",
+  "description": "Claude Code skills and agents for WooCommerce plugin development and review.",
+  "author": {
+    "name": "Andrew Wikel",
+    "url": "https://github.com/slash1andy"
+  },
+  "repository": "https://github.com/slash1andy/claude-woocommerce-toolkit",
+  "license": "GPL-2.0-or-later"
+}
