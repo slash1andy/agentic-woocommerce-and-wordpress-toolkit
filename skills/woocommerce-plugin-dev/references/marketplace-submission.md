@@ -13,15 +13,9 @@ Confirm program details against maintained official sources at submission time.
 ## QIT
 
 Use the maintained QIT plugin and documentation for current installation, authentication, managed-test,
-and test-package commands. Do not copy a broad command catalog into project instructions. The existing
-contract test expects the current PHP compatibility spelling:
-
-```bash
-qit run:phpcompatibility my-plugin
-```
-
-Recheck that command and all other options in the live QIT index before use. QIT complements the
-project's focused tests; it does not replace them.
+and test-package commands. Do not copy command catalogs into project instructions; verify the current
+command and options in the live QIT index before use. QIT complements the project's focused tests; it
+does not replace them.
 
 ## WooCommerce Marketplace
 

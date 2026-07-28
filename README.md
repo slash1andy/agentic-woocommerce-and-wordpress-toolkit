@@ -14,7 +14,7 @@ The development skill also includes [evaluation benchmarks](skills/woocommerce-p
 
 ### Specialized agent
 
-- **[WooCommerce UX Reviewer](agents/woocommerce-ux-reviewer.md)** — specialized review of WordPress, WooCommerce, checkout, payment, admin, accessibility, mobile, and conversion UX.
+- **[WooCommerce UX Reviewer](agents/woocommerce-ux-reviewer.md)** — specialized review of WooCommerce shopper and merchant UX across storefront, checkout, payment, admin, accessibility, mobile, and recovery flows.
 
 This release contains **3 skills and 1 specialized agent**. The repository validator checks that inventory before release.
 

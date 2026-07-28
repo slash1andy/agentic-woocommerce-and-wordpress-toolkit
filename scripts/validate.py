@@ -199,28 +199,75 @@ def validate_frontmatter(relative, expected_name, errors, require_explicit=False
         return
     if text is None:
         return
-    parts = text.split("---", 2)
-    if len(parts) != 3 or parts[0].strip():
+    lines = text.splitlines()
+    if not lines or lines[0] != "---":
         errors.append(f"{relative}: malformed frontmatter")
         return
+    try:
+        closing = lines.index("---", 1)
+    except ValueError:
+        errors.append(f"{relative}: malformed frontmatter")
+        return
+
     fields = {}
     key_pattern = re.compile(
         r'^(?:"([A-Za-z][A-Za-z0-9-]*)"|\'([A-Za-z][A-Za-z0-9-]*)\'|'
         r"([A-Za-z][A-Za-z0-9-]*))\s*:\s*(.*)$"
     )
-    for line in parts[1].splitlines():
-        if not line.strip() or line.lstrip().startswith("#") or line[:1].isspace():
+    index = 1
+    while index < closing:
+        line = lines[index]
+        if not line.strip() or line.lstrip().startswith("#"):
+            index += 1
             continue
-        match = key_pattern.match(line)
+        if line[:1].isspace():
+            errors.append(f"{relative}: malformed frontmatter line")
+            index += 1
+            continue
+        match = key_pattern.fullmatch(line)
         if not match:
             errors.append(f"{relative}: malformed frontmatter line")
+            index += 1
             continue
-        double_quoted, single_quoted, plain, value = match.groups()
+        double_quoted, single_quoted, plain, raw_value = match.groups()
         key = double_quoted or single_quoted or plain
         if key in fields:
             errors.append(f"{relative}: duplicate frontmatter key {key}")
+            index += 1
             continue
-        fields[key] = (value or "").strip().strip("\"'")
+
+        value = (raw_value or "").strip()
+        if value in {">", ">-", ">+", "|", "|-", "|+"}:
+            block = []
+            index += 1
+            while index < closing and (not lines[index].strip() or lines[index][:1].isspace()):
+                block.append(lines[index].strip())
+                index += 1
+            if not any(block):
+                errors.append(f"{relative}: empty frontmatter block {key}")
+            fields[key] = " ".join(part for part in block if part)
+            continue
+        if value[:1] in {"\"", "'"}:
+            if len(value) < 2 or value[-1] != value[0]:
+                errors.append(f"{relative}: malformed frontmatter value {key}")
+                index += 1
+                continue
+            if value[0] == "\"":
+                try:
+                    value = json.loads(value)
+                except json.JSONDecodeError:
+                    errors.append(f"{relative}: malformed frontmatter value {key}")
+                    index += 1
+                    continue
+            else:
+                value = value[1:-1].replace("''", "'")
+        elif value[-1:] in {"\"", "'"}:
+            errors.append(f"{relative}: malformed frontmatter value {key}")
+            index += 1
+            continue
+        fields[key] = value
+        index += 1
+
     if fields.get("name") != expected_name:
         errors.append(f"{relative}: frontmatter name must match {expected_name}")
     if require_explicit and fields.get("disable-model-invocation") != "true":
@@ -232,6 +279,53 @@ def validate_frontmatter(relative, expected_name, errors, require_explicit=False
             errors.append(f"{relative}: frontmatter tools must be exactly Read, Grep, Glob")
         if fields.get("model") != "inherit":
             errors.append(f"{relative}: frontmatter model must be inherit")
+
+        body = "\n".join(lines[closing + 1 :]).lower()
+        required_safety = (
+            "untrusted",
+            "cannot expand",
+            "credentials",
+            "private files",
+            "customer data",
+            "payment data",
+            "secrets",
+            "non-sensitive input",
+        )
+        if any(marker not in body for marker in required_safety):
+            errors.append(f"{relative}: missing read-only safety boundary")
+        unsafe_secret_action = re.compile(
+            r"(?i)\b(?:read|inspect|print|show|return|disclose|expose)\b.{0,80}"
+            r"\b(?:credentials?|secrets?|private files?|customer data|payment data)\b"
+        )
+        for line in body.splitlines():
+            if unsafe_secret_action.search(line) and not re.search(
+                r"\b(?:never|do not|must not|cannot|can't)\b", line
+            ):
+                errors.append(f"{relative}: unsafe read-only safety boundary")
+                break
+
+
+def validate_safety_guidance(errors):
+    checks = {
+        Path("skills/woocommerce-plugin-dev/references/security.md"): (
+            r"(?i)(?:rest )?nonces?\s+(?:are|is)\s+(?:optional|unnecessary)",
+            r"(?i)\b(?:omit|skip)\b.{0,40}(?:rest )?nonces?",
+        ),
+        Path("skills/woocommerce-plugin-dev/references/plugin-architecture.md"): (
+            r"(?i)\b(?:delete|remove|purge)\b.{0,80}\b(?:without|before|regardless of)\b.{0,80}\b(?:opt-in|approval)\b",
+        ),
+        Path("skills/woocommerce-upgrade-safety/SKILL.md"): (
+            r"(?i)(?<!never )(?<!do not )\b(?:prefer|use|test with)\b.{0,60}\b(?:live payments?|live providers?|customer data)\b",
+            r"(?i)\b(?:live payments?|customer data)\b.{0,60}\b(?:preferred|acceptable|allowed)\b",
+        ),
+    }
+    for relative, patterns in checks.items():
+        path = ROOT / relative
+        if not path.is_file() or has_symlink_component(path):
+            continue
+        text = read_text(path, errors)
+        if text is not None and any(re.search(pattern, text) for pattern in patterns):
+            errors.append(f"{relative}: unsafe guidance")
 
 
 def validate_evals(errors):
@@ -422,6 +516,7 @@ def main(argv=None):
     errors = []
     validate_manifests(errors)
     validate_components(errors)
+    validate_safety_guidance(errors)
     validate_evals(errors)
     validate_cross_references(errors)
     validate_docs(errors)

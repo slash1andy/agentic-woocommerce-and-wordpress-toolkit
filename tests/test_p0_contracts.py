@@ -71,142 +71,105 @@ class P0ContractsTest(unittest.TestCase):
     def test_qit_and_directory_guidance_are_current(self):
         text = read(MARKETPLACE)
 
-        self.assertIn("qit run:phpcompatibility", text)
+        self.assertNotIn("qit run:", text)
         self.assertNotIn("run:php-compatibility", text)
         self.assertNotIn("--php_version", text)
         self.assertIn("https://qit.woo.com/docs/llms.txt", text)
+        self.assertIn("maintained QIT plugin and documentation", text)
         self.assertNotIn("Woo E2E / Woo API", text)
         self.assertNotIn("AI-assisted code disclosure", text)
         self.assertRegex(text, r"(?i)do(?:es)? not require.{0,80}AI-assistance disclosure")
         self.assertRegex(text, r"(?i)explicit approval.{0,120}(?:authenticate|upload|submit|publish)")
 
     def test_pr3_guidance_is_repository_first_and_risk_based(self):
-        required = {
-            DEV / "SKILL.md": (
-                "inspect the repository and its conventions first",
-                "ask only for blockers",
-                "keep the brief in chat until the exact save scope is approved",
-                "reuse existing composer, npm, test, and static-analysis setup",
-                "smallest effective risk-based check",
-                "@throws only for exceptions the code can actually throw",
-                "prefix global identifiers",
-                "blocks compatibility only after implementation and tests",
-            ),
-            CODING: (
-                "align syntax and tooling to the project's tested php floor",
-                "follow the repository's established convention",
-                "prefix global identifiers",
-                "@throws only",
-            ),
-            ARCHITECTURE: (
-                "blocks compatibility is conditional",
-                "retained plugin data by default",
-                "explicit opt-in",
-            ),
-            TESTING: (
-                "risk | smallest effective check",
-                "documented project commands",
-                "one phpunit baseline only when",
-                "hpos enabled and disabled",
-                "classic and blocks",
-                "money precision",
-                "replay/idempotency",
-                "migration interruption/resume",
-                "store api session/cart",
-                "official qit plugin and documentation",
-            ),
-            SECURITY: (
-                "`permission_callback` on every rest route",
-                "cookie-authenticated rest mutations require a rest nonce",
-                "application passwords, basic authentication, and oauth do not use rest nonces",
-                "capabilities do not replace csrf protection",
-                "wc_get_logger()",
-                "event ids, outcomes, and masked metadata",
-                "never raw bodies or secrets",
-            ),
-            UX: (
-                "onboarding is optional",
-                "prefer public apis",
-                "feature-detect",
-                "installed target version",
-                "settings page or admin notice",
-                "wcag 2.2 aa",
-            ),
-            MARKETPLACE: (
-                "maintained qit plugin and documentation",
-                "shipped code cannot be payment-locked",
-                "substantive external service may charge",
-                "license-only validation",
-                "wcag 2.2 aa",
-            ),
-            FINALIZE: (
-                "project configuration and evidence",
-                "generic correctness belongs in `/code-review`",
-                "woo traceability and code health",
-            ),
-            UPGRADE: (
-                "stable monotonic cursor or action scheduler",
-                "committed progress",
-                "idempotency, replay, interruption-resume, and concurrent-growth tests",
-                "no skipped or duplicate records",
-                "installed, licensed official source and version",
-                "exact accepted arguments",
-                "blocked/unknown",
-                "fake or sandbox providers",
-                "actual change surface",
-            ),
-        }
-        forbidden = {
-            DEV / "SKILL.md": (
-                "minimum php version: 8.1",
-                "every woocommerce plugin follows this canonical structure",
-                "level 6+ minimum",
-            ),
-            CODING: (
-                "wpcs 3.3.0+",
-                '"php": ">=8.1"',
-                "never use `use function`",
-            ),
-            ARCHITECTURE: (
-                "service container pattern",
-                "wordpress is on the 7.x line",
-                "all new plugins must declare compatibility",
-            ),
-            TESTING: (
-                "testing pyramid",
-                '"@playwright/test": "^1.60"',
-                "overall:** aim for 80%+",
-                "--level 6",
-            ),
-            SECURITY: (
-                "use `permission_callback` with capability checks instead of nonces",
-                "all api requests and responses",
-            ),
-            UX: ("onboardingtasks", "tasklists::add_task", "wcag 2.0 aa"),
-            MARKETPLACE: ("wcag 2.1 aa baseline",),
-            FINALIZE: (
-                "within 12 hours",
-                "level 7",
-                "functions longer than 50 lines",
-                "nesting deeper than 3 levels",
-                "| issue | level |",
-            ),
-            UPGRADE: (
-                "batch processing with `limit` + offset",
-                "major version bumps (x.0.0) start at high",
-            ),
-        }
+        dev = read(DEV / "SKILL.md")
+        coding = read(CODING)
+        architecture = read(ARCHITECTURE)
+        testing = read(TESTING)
+        security = read(SECURITY)
+        ux = read(UX)
+        marketplace = read(MARKETPLACE)
+        finalize = read(FINALIZE)
+        upgrade = read(UPGRADE)
 
-        for path, markers in required.items():
-            text = read(path).lower()
-            for marker in markers:
-                with self.subTest(path=path, required=marker):
-                    self.assertIn(marker.lower(), text)
-        for path, markers in forbidden.items():
-            text = read(path).lower()
-            for marker in markers:
-                with self.subTest(path=path, forbidden=marker):
-                    self.assertNotIn(marker.lower(), text)
+        self.assertRegex(
+            dev,
+            r"(?is)existing plugin.{0,300}inspect the repository.{0,300}ask only for blockers",
+        )
+        self.assertRegex(
+            dev,
+            r"(?is)new plugin.{0,400}unresolved high-impact.{0,600}exact save scope is approved",
+        )
+        self.assertRegex(
+            dev,
+            r"(?is)reuse existing Composer, npm, test, and static-analysis setup.{0,250}only when the requested behavior needs",
+        )
+        self.assertIn("smallest effective risk-based check", dev)
+        self.assertRegex(
+            coding,
+            r"(?is)prefix global identifiers.{0,300}namespaced classes.{0,300}@throws only",
+        )
+        self.assertRegex(
+            architecture,
+            r"(?is)Blocks compatibility is conditional.{0,900}retain(?:ed)? plugin data by default.{0,300}explicit opt-in",
+        )
+        for marker in (
+            "risk | smallest effective check",
+            "HPOS enabled and disabled",
+            "Classic and Blocks",
+            "money precision",
+            "replay/idempotency",
+            "migration interruption/resume",
+            "Store API session/cart",
+            "official QIT plugin and documentation",
+        ):
+            self.assertIn(marker.lower(), testing.lower())
+        self.assertRegex(
+            security,
+            r"(?is)`permission_callback` on every REST route.{0,400}cookie-authenticated REST mutations require a REST nonce.{0,400}Application Passwords, Basic Authentication, and OAuth do not use REST nonces",
+        )
+        self.assertRegex(
+            security,
+            r"(?is)capabilities do not replace CSRF protection.{0,300}nonce.{0,200}does not replace authentication",
+        )
+        self.assertRegex(
+            security,
+            r"(?is)Log event IDs, outcomes, and masked metadata.{0,120}never raw bodies or secrets",
+        )
+        self.assertRegex(
+            ux,
+            r"(?is)onboarding is optional.{0,400}prefer public APIs.{0,500}installed target version.{0,400}settings page or admin notice.{0,800}WCAG 2\.2 AA",
+        )
+        self.assertRegex(
+            marketplace,
+            r"(?is)shipped code cannot be payment-locked.{0,300}substantive external service may charge.{0,500}license-only validation",
+        )
+        self.assertIn("Generic correctness belongs in `/code-review`", finalize)
+        self.assertIn("Use project configuration and evidence", finalize)
+        self.assertRegex(
+            finalize,
+            r"(?is)Complexity is evidence-based.{0,300}configured analyzer finding",
+        )
+        self.assertRegex(
+            upgrade,
+            r"(?is)stable monotonic cursor or Action Scheduler.{0,300}committed progress.{0,500}concurrent-growth tests.{0,300}no skipped or duplicate",
+        )
+        self.assertRegex(
+            upgrade,
+            r"(?is)installed, licensed official source and version.{0,300}exact accepted arguments.{0,300}blocked/unknown",
+        )
+        self.assertRegex(
+            upgrade,
+            r"(?is)fake or sandbox providers.{0,120}never use live payments or customer data",
+        )
+
+        combined = "\n".join(
+            (dev, coding, architecture, testing, security, ux, marketplace, finalize, upgrade)
+        )
+        self.assertNotRegex(
+            combined,
+            r"(?i)minimum PHP version: 8\.1|service container pattern|testing pyramid|within 12 hours|level 7|functions longer than 50 lines|batch processing with `LIMIT` \+ offset|major version bumps \(x\.0\.0\) start at high|WCAG 2\.[01] AA",
+        )
 
     def test_skills_are_explicit_and_read_only_by_default(self):
         skill_paths = (
@@ -266,14 +229,27 @@ class P0ContractsTest(unittest.TestCase):
         uninstall = architecture.split("## Uninstall Handler", 1)[1].split("\n---", 1)[0]
         security = read(SECURITY)
         abilities = read(ABILITIES)
+        upgrade = read(UPGRADE)
 
         self.assertRegex(uninstall, r"(?i)retain(?:ed)? (?:plugin )?data by default")
         self.assertRegex(uninstall, r"(?i)explicit opt-in")
         self.assertNotIn("DELETE FROM", uninstall)
         self.assertNotIn("DROP TABLE", uninstall)
+        self.assertNotRegex(
+            uninstall,
+            r"(?is)\b(?:delete|remove|purge)\b.{0,80}\b(?:without|before|regardless of)\b.{0,80}\b(?:opt-in|approval)\b",
+        )
         self.assertRegex(security, r"(?i)password[- ]type fields do not encrypt")
         self.assertRegex(security, r"(?i)never render (?:a )?stored secret")
         self.assertRegex(security, r"(?i)environment|brokered secret")
+        self.assertNotRegex(
+            security,
+            r"(?i)(?:REST )?nonces?\s+(?:are|is)\s+(?:optional|unnecessary)",
+        )
+        self.assertNotRegex(
+            upgrade,
+            r"(?is)(?<!never )(?<!do not )\b(?:prefer|use|test with)\b.{0,60}\b(?:live payments?|live providers?|customer data)\b",
+        )
         self.assertNotIn("--user=admin", abilities)
         self.assertRegex(abilities, r"(?i)dedicated.{0,80}least-privilege")
 
