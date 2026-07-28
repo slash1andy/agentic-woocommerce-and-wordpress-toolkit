@@ -4,14 +4,14 @@
     {
       "id": 1,
       "prompt": "I want to build a WooCommerce plugin that adds a loyalty points system. Customers earn points on purchases and can redeem them for discounts. Start the project for me.",
-      "expected_output": "Should conduct a project discovery interview asking about target market, point earning rates, redemption mechanics, admin controls, and compliance needs. Should NOT start writing code until the interview is complete and a PROJECT_BRIEF.md is saved.",
+      "expected_output": "Should conduct a project discovery interview asking about target market, point earning rates, redemption mechanics, admin controls, and compliance needs. Should present a PROJECT_BRIEF.md draft for approval and NOT save it or start writing code until the user approves the exact write scope.",
       "files": [],
       "expectations": [
         "Asks the user about target market and distribution channel before writing code",
         "Asks about the customer-facing experience (how points are displayed, redeemed)",
         "Asks about admin controls (point rates, manual adjustments, reports)",
         "Asks about financial/compliance considerations (point liability, expiration, GDPR)",
-        "Does NOT scaffold code or create files before completing the interview"
+        "Does NOT scaffold code or create files before completing the interview and receiving explicit write approval"
       ]
     },
     {
@@ -26,7 +26,7 @@
         "Uses PSR-4 autoloading via Composer",
         "Creates PHPUnit and Playwright test configuration files",
         "All user input handling includes sanitization (sanitize_text_field, absint, etc.)",
-        "All output includes proper escaping (esc_html, esc_attr, esc_url)",
+        "Rendered HTML output uses context-appropriate escaping (esc_html, esc_attr, esc_url)",
         "Registers the shipping method using woocommerce_shipping_methods filter",
         "Creates a WooCommerce Settings integration for zone/rate configuration"
       ]
@@ -34,7 +34,7 @@
     {
       "id": 3,
       "prompt": "I need to add a custom REST API endpoint to my WooCommerce plugin that lets external systems query order fulfillment status. The endpoint should be at /wp-json/my-plugin/v1/fulfillment/{order_id} and return the fulfillment status, tracking number, and estimated delivery date. Write the endpoint class with full tests.",
-      "expected_output": "Should create a REST API controller class with proper permission callbacks, input validation, HPOS-compatible order data retrieval, sanitized/escaped output, and both unit and integration tests covering auth, valid requests, invalid order IDs, and missing data scenarios.",
+      "expected_output": "Should create a REST API controller class with proper permission callbacks, input validation, HPOS-compatible order data retrieval, schema-declared JSON output, and both unit and integration tests covering auth, valid requests, invalid order IDs, and missing data scenarios.",
       "files": [],
       "expectations": [
         "Uses permission_callback with current_user_can check (not just __return_true)",
@@ -42,21 +42,21 @@
         "Uses WooCommerce CRUD ($order->get_meta()) not get_post_meta() for order data",
         "Returns properly structured JSON with appropriate HTTP status codes",
         "Includes PHPUnit tests for: authentication required, valid order, invalid order ID, order without fulfillment data",
-        "All string output in the response uses proper escaping",
+        "Response values match the declared schema and retain their native JSON types",
         "Registers the route in rest_api_init hook"
       ]
     },
     {
       "id": 4,
-      "prompt": "I'm building a WooCommerce gateway-companion plugin and I want it to be ready for AI shopping agents. I'd like to expose a read-only 'recent orders' operation that an AI assistant can call through the WooCommerce MCP server. How should I build that?",
-      "expected_output": "Should register a WordPress Ability on the abilities_api_init hook via wp_register_ability() with input/output schema and a real permission_callback, default to read-only, use WooCommerce CRUD inside execute_callback, and expose it through the WooCommerce MCP server via the woocommerce_mcp_include_ability filter (or meta.mcp.public for the generic MCP Adapter default server). Should NOT expose secrets or use an open permission check.",
+      "prompt": "I'm building a WooCommerce gateway-companion plugin and I want it to be ready for AI shopping agents. I'd like to expose a read-only 'recent orders' operation through the shared WordPress MCP Adapter. How should I build that?",
+      "expected_output": "Should register a WordPress Ability on the wp_abilities_api_init hook via wp_register_ability() with the woocommerce category, input/output schema, a real permission_callback, and meta.mcp.public for the shared WordPress MCP Adapter. It should default to read-only and use WooCommerce CRUD inside execute_callback. woocommerce_mcp_include_ability is deprecated endpoint compatibility only. Should NOT expose secrets or use an open permission check.",
       "files": [],
       "expectations": [
-        "Registers the ability on the abilities_api_init hook, guarded by function_exists('wp_register_ability')",
+        "Registers the ability on the wp_abilities_api_init hook, guarded by function_exists('wp_register_ability')",
         "Defines input_schema and output_schema for the ability",
         "Gates the ability with a real permission_callback (e.g. current_user_can('edit_shop_orders') or 'manage_woocommerce'), not an open check",
         "Uses WooCommerce CRUD (wc_get_orders / $order->get_*) inside execute_callback, not get_post_meta()",
-        "Exposes the ability via the woocommerce_mcp_include_ability filter or the meta.mcp.public flag",
+        "Uses the woocommerce category and exposes the ability through the shared adapter with meta.mcp.public",
         "Keeps the ability read-only and does not return secrets or credentials"
       ]
     }

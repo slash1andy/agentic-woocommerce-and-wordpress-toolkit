@@ -26,7 +26,7 @@ Includes 10 reference documents covering every aspect of plugin development:
 | [PCI Script Management](skills/woocommerce-plugin-dev/references/pci-script-management.md) | PCI DSS v4.0.1 payment-page script requirements (6.4.3 / 11.6.1) |
 | [Marketplace Submission](skills/woocommerce-plugin-dev/references/marketplace-submission.md) | QIT managed tests, Marketplace + WordPress.org distribution |
 
-Also includes [evaluation benchmarks](skills/woocommerce-plugin-dev/evals/evals.json) with 3 test scenarios.
+Also includes [evaluation benchmarks](skills/woocommerce-plugin-dev/evals/evals.json) with 4 test scenarios.
 
 **[WooCommerce Finalization](skills/woocommerce-finalize/SKILL.md)** — Pre-release code health and traceability audit. Runs after code review to catch structural issues that checklists miss:
 
@@ -89,20 +89,14 @@ cp claude-woocommerce-toolkit/agents/*.md /path/to/your/project/.claude/agents/
 
 ### WooCommerce Plugin Dev Skill
 
-The skill triggers automatically when you mention building a WooCommerce plugin. You can also invoke it directly:
+Invoke the skill explicitly:
 
 ```
-> I want to build a WooCommerce plugin that adds a loyalty points system
+> /woocommerce-plugin-dev I want to build a WooCommerce plugin that adds a loyalty points system
 
 Claude will conduct a project discovery interview before writing any code,
 then scaffold and build following all standards in the reference docs.
 ```
-
-Example trigger phrases:
-- "Build a WooCommerce plugin..."
-- "Create a payment gateway extension..."
-- "Start a new Woo extension for..."
-- "Scaffold a shipping method plugin..."
 
 ### UX Payments Reviewer Agent
 

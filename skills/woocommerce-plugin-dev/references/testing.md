@@ -6,9 +6,9 @@ corresponding tests before it is considered complete.
 
 **Official sources:**
 - WooCommerce Testing Guide: https://developer.woocommerce.com/testing-extensions-and-maintaining-quality-code/
-- WooCommerce E2E with Playwright: https://github.com/woocommerce/woocommerce/tree/trunk/plugins/woocommerce/tests/e2e-pw
+- WooCommerce QIT Test Packages: https://qit.woo.com/docs/test-packages/
 - WooCommerce QIT: https://qit.woo.com/docs/
-- WordPress PHPUnit Testing: https://make.wordpress.org/core/handbook/testing/automated-testing/phpunit/
+- WordPress PHPUnit Testing: https://make.wordpress.org/core/handbook/testing/automated-testing/writing-phpunit-tests/
 
 ---
 

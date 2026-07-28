@@ -12,7 +12,7 @@ protocol specs before relying on them.
 - WordPress Abilities API + MCP (see the companion reference): `references/abilities-and-mcp.md`
 - Model Context Protocol: https://modelcontextprotocol.io/
 - Agentic Commerce Protocol (ACP): https://www.agenticcommerce.dev/
-- Store API (the headless/programmatic surface): https://github.com/woocommerce/woocommerce/tree/trunk/plugins/woocommerce/src/StoreApi
+- Store API (the headless/programmatic surface): https://developer.woocommerce.com/docs/apis/store-api/
 
 ---
 
@@ -35,19 +35,18 @@ layer driven by external protocols and platform partners.
 ## Track 1 — Agent operation via Abilities + MCP
 
 This is fully covered in `references/abilities-and-mcp.md`. In short: register your extension's safe
-operations as **Abilities** (`wp_register_ability` on `abilities_api_init`), gate each with a real
-`permission_callback`, default to read-only, and opt commerce abilities into the **WooCommerce MCP
-server** (`woocommerce_mcp_include_ability`). WooCommerce shipped MCP as a beta in 10.3 and introduced
-canonical product/order abilities in 10.9; extension-owned read abilities (subscriptions, payments,
-shipping, etc.) build on the same pattern.
+operations as **Abilities** (`wp_register_ability` on `wp_abilities_api_init`), gate each with a real
+`permission_callback`, default to read-only, and expose them through the shared WordPress MCP Adapter
+with `meta.mcp.public`. Use `woocommerce_mcp_include_ability` only for compatibility with WooCommerce's
+deprecated endpoint.
 
 ---
 
 ## Track 2 — Agentic checkout protocols
 
 When a shopper buys from inside an AI assistant, the agent needs three things from the store: a
-**machine-readable product feed** to discover items, a **programmatic (sessionless) checkout** to
-place the order without driving the browser UI, and a **delegated payment** mechanism so the agent
+**machine-readable product feed** to discover items, a **programmatic checkout** that preserves the
+required customer session and request tokens, and a **delegated payment** mechanism so the agent
 can pay on the shopper's behalf without handling raw card data. Two open protocols address this; they
 are **different efforts** and should not be merged in a developer's mind:
 
@@ -78,9 +77,10 @@ agent-facing pattern. Adopt the items that fit the plugin's role:
 
 - [ ] **Discoverability.** Expose a machine-readable, structured view of the relevant catalog/data —
       via the Store API (`wc/store/v1`), the REST API, and/or registered read-only Abilities (Track 1).
-- [ ] **Programmatic checkout.** Where the plugin touches checkout, keep the **Store API** path correct
-      and stateless (it does not fire classic checkout PHP hooks — see `references/woocommerce-apis.md`).
-      A sessionless, headless checkout is the substrate every agentic-checkout protocol builds on.
+- [ ] **Programmatic checkout.** Where the plugin touches checkout, keep the **Store API** path correct:
+      support either cookie-session requests with a current Nonce or the headless Cart-Token flow,
+      which replaces cookies and does not require a Nonce (see `references/woocommerce-apis.md`). It
+      does not fire classic checkout PHP hooks.
 - [ ] **Delegated payment.** For payment gateways, understand how your gateway participates in delegated
       / shared-payment-token flows (e.g. via the partner suite for ACP) and that the merchant stays
       merchant of record. Never expose raw PAN/credentials to an agent.
@@ -96,7 +96,7 @@ agent-facing pattern. Adopt the items that fit the plugin's role:
 | Agentic need | Existing toolkit material |
 |--------------|---------------------------|
 | Discovery feed / programmatic reads | `references/woocommerce-apis.md` — Store API, REST API v3, custom endpoints |
-| Sessionless checkout | `references/woocommerce-apis.md` — Store API & block checkout extensibility |
+| Programmatic checkout | `references/woocommerce-apis.md` — Store API session and token handling |
 | Capability registration for agents | `references/abilities-and-mcp.md` |
 | Feature compatibility flags | `references/plugin-architecture.md` — `FeaturesUtil::declare_compatibility()` |
 | Privileged-surface security | `references/security.md` — capability checks, permission callbacks, secret handling |

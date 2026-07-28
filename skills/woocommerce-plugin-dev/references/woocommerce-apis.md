@@ -6,8 +6,9 @@ with future WooCommerce releases.
 
 **Official sources:**
 - WooCommerce REST API: https://woocommerce.github.io/woocommerce-rest-api-docs/
+- Store API: https://developer.woocommerce.com/docs/apis/store-api/
 - WooCommerce Developer Docs: https://developer.woocommerce.com/docs/
-- HPOS Recipe Book: https://developer.woocommerce.com/docs/features/high-performance-order-storage/recipe-book/
+- HPOS Recipe Book: https://developer.woocommerce.com/docs/features/orders/high-performance-order-storage/recipe-book/
 
 ---
 
@@ -263,19 +264,18 @@ external systems consume.
 
 **1. HTTP Basic Auth (HTTPS only — recommended for server-to-server):**
 
+Store credentials in a protected netrc file outside the repository, provisioned by the deployment's
+secret broker where available. Restrict the file to the current user and pass only its path to curl;
+do not put credentials in the URL, process arguments, command history, or repository.
+
 ```bash
-# Consumer key and secret are generated in WooCommerce > Settings > Advanced > REST API.
-curl https://example.com/wp-json/wc/v3/orders \
-  -u ck_your_consumer_key:cs_your_consumer_secret
+chmod 600 "${WC_NETRC_FILE}"
+curl --netrc-file "${WC_NETRC_FILE}" "${WC_API_BASE}/orders"
 ```
 
-**2. Query string auth (HTTPS only — for testing):**
+Use a dedicated integration identity and grant only the REST API permissions it needs.
 
-```
-https://example.com/wp-json/wc/v3/orders?consumer_key=ck_xxx&consumer_secret=cs_xxx
-```
-
-**3. OAuth 1.0a (for HTTP sites — rare but supported):**
+**2. OAuth 1.0a (for HTTP sites — rare but supported):**
 
 Uses HMAC-SHA1 or HMAC-SHA256 signature method. Required parameters:
 `oauth_consumer_key`, `oauth_timestamp`, `oauth_nonce`, `oauth_signature`,
@@ -304,6 +304,10 @@ add_filter( 'woocommerce_rest_prepare_shop_order_object', function ( $response, 
 }, 10, 2 );
 ```
 
+Declare schemas for custom fields and validate values against those schemas at the request boundary.
+Return native JSON strings, numbers, booleans, arrays, and objects. Do not HTML-escape JSON values;
+escape only when a consumer later renders a value into an HTML, attribute, URL, or JavaScript context.
+
 ---
 
 ## Store API & Block Checkout Extensibility
@@ -312,8 +316,10 @@ The Store API is WooCommerce's modern REST API specifically for the block-based 
 Checkout experience. If your plugin needs to modify the checkout flow, you MUST use the
 Store API instead of relying on classic checkout hooks.
 
-**Key difference:** The Store API uses stateless REST endpoints rather than session-based
-checkout, and it does NOT fire classic checkout PHP hooks.
+**Key difference:** The Store API does NOT fire classic checkout PHP hooks. Choose one state model for
+Cart and Checkout requests: preserve the cookie-based customer session and send a current `Nonce` on
+write requests, or send the Store API's `Cart-Token` instead of cookies; Cart-Token requests do not
+require a Nonce. Follow the current Store API authentication documentation for the chosen client flow.
 
 The Store API is namespaced **`wc/store/v1`** (e.g. `/wp-json/wc/store/v1/cart`). `v1` is currently
 the only version; a breaking change would force a new namespace version. It is also the canonical
@@ -346,7 +352,7 @@ add_action( 'woocommerce_init', function () {
 - **`order`** — renders in the "Order information" inner block; saved to the order only.
 
 Read saved values with the WooCommerce helper methods rather than raw meta keys. See the official
-guide: https://developer.woocommerce.com/docs/block-development/extensible-blocks/cart-and-checkout-blocks/additional-checkout-fields/
+guide: https://developer.woocommerce.com/docs/block-development/tutorials/how-to-additional-checkout-fields-guide/
 
 Use **`ExtendSchema`** (below) for the lower-level case of attaching arbitrary custom *data* to Store
 API responses, rather than registering a user-facing field.
@@ -510,9 +516,9 @@ class Settings_Page extends \WC_Settings_Page {
 				'default'  => 'yes',
 			),
 			array(
-				'title'    => __( 'API Key', 'plugin-slug' ),
-				'desc'     => __( 'Enter your API key.', 'plugin-slug' ),
-				'id'       => 'plugin_slug_api_key',
+				'title'    => __( 'Checkout Label', 'plugin-slug' ),
+				'desc'     => __( 'Label shown to customers at checkout.', 'plugin-slug' ),
+				'id'       => 'plugin_slug_checkout_label',
 				'type'     => 'text',
 				'desc_tip' => true,
 			),

@@ -357,64 +357,17 @@ If your plugin provides frontend templates or blocks, ensure they work with the 
 
 ## Uninstall Handler
 
-`uninstall.php` runs when the plugin is deleted (not just deactivated). It should clean up
-all plugin data.
+Retain plugin data by default when the plugin is uninstalled. Generate destructive cleanup only
+from an explicit opt-in requirement that identifies exactly which plugin-owned data may be removed.
 
-```php
-<?php
-/**
- * Plugin uninstall handler.
- *
- * Removes all plugin data when the plugin is deleted via WordPress admin.
- *
- * @package PluginSlug
- * @since   1.0.0
- */
+For approved deletion:
 
-// Exit if not called by WordPress.
-if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
-	exit;
-}
-
-global $wpdb;
-
-// Delete options.
-$wpdb->query(
-	$wpdb->prepare(
-		"DELETE FROM {$wpdb->options} WHERE option_name LIKE %s",
-		$wpdb->esc_like( 'plugin_slug_' ) . '%'
-	)
-);
-
-// Delete order meta.
-// Use HPOS-compatible approach.
-if ( class_exists( 'WooCommerce' ) ) {
-	$wpdb->query(
-		$wpdb->prepare(
-			"DELETE FROM {$wpdb->prefix}wc_orders_meta WHERE meta_key LIKE %s",
-			$wpdb->esc_like( '_plugin_slug_' ) . '%'
-		)
-	);
-}
-
-// Drop custom tables.
-$wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}plugin_slug_logs" );
-
-// Delete transients.
-$wpdb->query(
-	$wpdb->prepare(
-		"DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s",
-		$wpdb->esc_like( '_transient_plugin_slug_' ) . '%',
-		$wpdb->esc_like( '_transient_timeout_plugin_slug_' ) . '%'
-	)
-);
-
-// Clear any scheduled hooks.
-wp_clear_scheduled_hook( 'plugin_slug_daily_cron' );
-
-// Flush rewrite rules.
-flush_rewrite_rules();
-```
+- verify ownership of every option, transient, scheduled action, and custom table;
+- back up data and prove restore before removing business-critical records;
+- remove plugin-owned order metadata in bounded batches through WooCommerce CRUD so both HPOS and
+  legacy order storage are handled; do not issue raw deletes against order tables;
+- make cleanup resumable and test it against both storage modes; and
+- never delete orders, payments, or unrelated shared data by default.
 
 ---
 

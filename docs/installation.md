@@ -20,26 +20,27 @@ git clone https://github.com/Automattic/claude-woocommerce-toolkit.git
 cd claude-woocommerce-toolkit
 ```
 
-## Step 2: Install the Skill
+## Step 2: Install the Skills
 
-The WooCommerce Plugin Dev skill is a directory containing `SKILL.md`, reference docs, and evals. Copy the entire directory:
+Install the complete reviewed skill set together so the finalization and upgrade audits can resolve
+the shared WooCommerce references:
 
 ```bash
 # Global
 mkdir -p ~/.claude/skills
-cp -r skills/woocommerce-plugin-dev ~/.claude/skills/
+cp -r skills/* ~/.claude/skills/
 
 # OR project-level
 mkdir -p /path/to/your/project/.claude/skills
-cp -r skills/woocommerce-plugin-dev /path/to/your/project/.claude/skills/
+cp -r skills/* /path/to/your/project/.claude/skills/
 ```
 
 ### Verify the Skill
 
-Start a Claude Code session and try a trigger phrase:
+Start a Claude Code session and invoke the development skill explicitly:
 
 ```
-> I want to build a WooCommerce shipping plugin
+> /woocommerce-plugin-dev I want to build a WooCommerce shipping plugin
 ```
 
 Claude should begin the Project Discovery interview from Phase 1 of the skill, asking about your target market, plugin scope, technical requirements, etc.
@@ -112,7 +113,7 @@ Then a `git pull` automatically updates your installation.
 
 ## Troubleshooting
 
-**Skill not triggering?**
+**Skill not available?**
 - Ensure the file is at `~/.claude/skills/woocommerce-plugin-dev/SKILL.md` (the `SKILL.md` filename is required)
 - Check that the `references/` directory is alongside `SKILL.md`
 

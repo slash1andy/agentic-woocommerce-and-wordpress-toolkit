@@ -35,11 +35,11 @@ Per the WordPress Plugin Handbook Security chapter, these principles govern ever
 2. **Defense in depth.** Layer security measures. Even if one layer fails, the next catches it.
 3. **Principle of least privilege.** Only request the minimum capabilities needed. Only expose
    the minimum data necessary.
-4. **Validate, Sanitize, Escape.** The WordPress security model is:
+4. **Validate, Sanitize, Escape for context.** The WordPress security model is:
    - **Validate** data to check it meets expected criteria (data validation)
    - **Sanitize** data on input before storage (securing input)
-   - **Escape** data on output before rendering (securing output)
-   These are three distinct operations and all three must be used together.
+   - **Escape** data at the point it is rendered into HTML, an attribute, a URL, or JavaScript
+   Schemas and validation govern API data. Do not HTML-escape JSON values generically.
 
 ---
 
@@ -131,12 +131,12 @@ may have been compromised or injected before your plugin was installed.
 ```php
 <input
 	type="text"
-	name="plugin_slug_api_key"
-	value="<?php echo esc_attr( $api_key ); ?>"
+	name="plugin_slug_display_label"
+	value="<?php echo esc_attr( $display_label ); ?>"
 	class="regular-text"
 />
 <p class="description">
-	<?php echo esc_html__( 'Enter your API key.', 'plugin-slug' ); ?>
+	<?php echo esc_html__( 'Label shown at checkout.', 'plugin-slug' ); ?>
 </p>
 <a href="<?php echo esc_url( $dashboard_url ); ?>">
 	<?php echo esc_html__( 'View Dashboard', 'plugin-slug' ); ?>
@@ -297,7 +297,9 @@ dbDelta( $sql );
 - Validate SSL certificates (don't disable SSL verification)
 - Implement timeouts (default is 5 seconds, set explicitly)
 - Don't log sensitive data (API keys, tokens) — mask in logs
-- Store API credentials in the options table, never in code
+- Prefer environment-provided or brokered secrets where the deployment supports them; otherwise use
+  the narrowest supported protected storage and document its limits
+- Never render a stored secret back into an admin form or API response
 
 ### Inbound Webhooks
 
@@ -368,8 +370,9 @@ Build on the platform's primitives rather than reimplementing weaker equivalents
 - WordPress core hashes passwords with **bcrypt** (and application passwords / reset keys with BLAKE2b)
   in recent releases — use the core auth APIs rather than rolling your own credential hashing.
 - Prefer the WordPress core **HTML API** over hand-rolled HTML string manipulation for safer output.
-- Store gateway secrets in a `WC_Payment_Gateway` password-type field (or an option with `autoload=no`),
-  never in code and never in logs.
+- Password-type fields do not encrypt values stored in options; they only mask browser input.
+  Never render a stored secret back to the browser. Prefer environment-provided or brokered secrets
+  where supported, and never place secrets in code or logs.
 
 ---
 
