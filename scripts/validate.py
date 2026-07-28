@@ -38,7 +38,14 @@ SKILLS = (
     "woocommerce-upgrade-safety",
 )
 AGENTS = ("woocommerce-ux-reviewer",)
-DOCS = (Path("README.md"), Path("docs/installation.md"))
+DOCS = (
+    Path("README.md"),
+    Path("docs/installation.md"),
+    Path("SECURITY.md"),
+    Path("docs/evaluation-status.md"),
+    Path("docs/release-checklist.md"),
+)
+INSTALL_DOCS = DOCS[:2]
 PROVENANCE = (
     "Upstream provenance: this project originated at "
     "[Automattic/claude-woocommerce-toolkit]"
@@ -153,7 +160,7 @@ def validate_components(errors):
     required = [
         *(Path("skills") / name / "SKILL.md" for name in SKILLS),
         *(Path("agents") / f"{name}.md" for name in AGENTS),
-        Path("skills/woocommerce-plugin-dev/evals/evals.json"),
+        *(Path("skills") / name / "evals/evals.json" for name in SKILLS),
         *DOCS,
     ]
     root = ROOT.resolve()
@@ -412,20 +419,49 @@ def validate_safety_guidance(errors):
 
 
 def validate_evals(errors):
-    relative = Path("skills/woocommerce-plugin-dev/evals/evals.json")
-    data = load_json(relative, errors)
-    if data is None:
-        return
-    cases = data.get("evals") if isinstance(data, dict) else None
-    if not isinstance(cases, list) or not cases:
-        errors.append(f"{relative}: evals must be a nonempty list")
-        return
-    if any(not isinstance(case, dict) or not case for case in cases):
-        errors.append(f"{relative}: every eval case must be a nonempty object")
-    readme = read_text(ROOT / "README.md", errors) if (ROOT / "README.md").is_file() else ""
-    readme = readme or ""
-    if f"with {len(cases)} test scenarios" not in readme:
-        errors.append(f"README.md: eval count must be {len(cases)}")
+    top_keys = {"skill_name", "evals"}
+    case_keys = {"id", "prompt", "expected_output", "files", "expectations"}
+    for name in SKILLS:
+        relative = Path("skills") / name / "evals/evals.json"
+        data = load_json(relative, errors)
+        if data is None:
+            continue
+        if not isinstance(data, dict) or set(data) != top_keys:
+            errors.append(f"{relative}: eval set must contain exactly skill_name and evals")
+            continue
+        if data["skill_name"] != name:
+            errors.append(f"{relative}: skill_name must be {name}")
+        cases = data["evals"]
+        if not isinstance(cases, list) or not cases:
+            errors.append(f"{relative}: evals must be a nonempty list")
+            continue
+
+        ids = set()
+        for index, case in enumerate(cases, 1):
+            label = f"{relative}: eval {index}"
+            if not isinstance(case, dict) or set(case) != case_keys:
+                errors.append(f"{label} must contain exactly id, prompt, expected_output, files, and expectations")
+                continue
+            case_id = case["id"]
+            if type(case_id) is not int:
+                errors.append(f"{label} id must be an integer")
+            elif case_id in ids:
+                errors.append(f"{label} id must be unique")
+            else:
+                ids.add(case_id)
+            for key in ("prompt", "expected_output"):
+                if not isinstance(case[key], str) or not case[key].strip():
+                    errors.append(f"{label} {key} must be a nonempty string")
+            files = case["files"]
+            if not isinstance(files, list) or any(
+                not isinstance(item, str) or not item.strip() for item in files
+            ):
+                errors.append(f"{label} files must be a list of nonempty strings")
+            expectations = case["expectations"]
+            if not isinstance(expectations, list) or len(expectations) < 2 or any(
+                not isinstance(item, str) or not item.strip() for item in expectations
+            ):
+                errors.append(f"{label} expectations must contain at least two nonempty strings")
 
 
 def validate_cross_references(errors):
@@ -489,7 +525,8 @@ def validate_docs(errors):
     for marker in required:
         if marker not in combined:
             errors.append(f"installation docs: missing required guidance: {marker}")
-    for relative, text in texts.items():
+    for relative in INSTALL_DOCS:
+        text = texts.get(relative, "")
         if "/code-review" not in text or "code-reviewer" in text:
             errors.append(f"{relative}: generic reviews must use /code-review")
 

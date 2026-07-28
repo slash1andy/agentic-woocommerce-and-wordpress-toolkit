@@ -24,9 +24,9 @@ Each reference document should:
 - Be self-contained (readable without the other reference docs)
 - Use the existing docs as a template for structure and tone
 
-### Evaluation Benchmarks
+### Manual Evaluation Scenarios
 
-The `evals/evals.json` file contains test scenarios for the skill. Add evals that test:
+Each `skills/*/evals/evals.json` file contains official-format manual evaluation scenarios, not benchmark results. Add scenarios that test:
 
 - New reference doc coverage (does the skill apply the new standards?)
 - Edge cases in existing standards
@@ -57,4 +57,4 @@ Agent definitions live in `agents/`. Improvements might include:
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the GPL v2 or later.
+By contributing, you agree that your contributions will be licensed under GPL-2.0-or-later.

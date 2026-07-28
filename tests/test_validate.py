@@ -701,6 +701,44 @@ class ValidateRepositoryTest(unittest.TestCase):
                 self.assertIn(f"{relative}: invalid UTF-8", result.stderr)
                 self.assertNotIn("Traceback", result.stderr)
 
+    def test_all_skill_eval_sets_are_required_and_well_formed(self):
+        def missing_eval_set(repo):
+            path = repo / "skills/woocommerce-finalize/evals/evals.json"
+            path.unlink(missing_ok=True)
+
+        def duplicate_eval_id(repo):
+            path = repo / "skills/woocommerce-plugin-dev/evals/evals.json"
+            data = json.loads(path.read_text(encoding="utf-8"))
+            data["evals"][1]["id"] = data["evals"][0]["id"]
+            path.write_text(json.dumps(data), encoding="utf-8")
+
+        def missing_expectations(repo):
+            source = repo / "skills/woocommerce-plugin-dev/evals/evals.json"
+            path = repo / "skills/woocommerce-upgrade-safety/evals/evals.json"
+            data = json.loads(source.read_text(encoding="utf-8"))
+            data["skill_name"] = "woocommerce-upgrade-safety"
+            data["evals"][0].pop("expectations")
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(data), encoding="utf-8")
+
+        for mutate in (missing_eval_set, duplicate_eval_id, missing_expectations):
+            with self.subTest(mutate=mutate.__name__):
+                result = self.run_after(mutate)
+                self.assertNotEqual(0, result.returncode)
+                self.assertIn("eval", result.stderr.lower())
+                self.assertNotIn("Traceback", result.stderr)
+
+    def test_release_documents_are_required(self):
+        for relative in ("SECURITY.md", "docs/evaluation-status.md", "docs/release-checklist.md"):
+            with self.subTest(relative=relative):
+                def remove_document(repo, path=relative):
+                    (repo / path).unlink(missing_ok=True)
+
+                result = self.run_after(remove_document)
+                self.assertNotEqual(0, result.returncode)
+                self.assertIn(relative, result.stderr)
+                self.assertNotIn("Traceback", result.stderr)
+
     def test_broken_cross_reference_fails(self):
         def break_reference(repo):
             path = repo / "skills/woocommerce-finalize/SKILL.md"

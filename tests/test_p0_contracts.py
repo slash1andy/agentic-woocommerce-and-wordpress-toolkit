@@ -258,8 +258,10 @@ class P0ContractsTest(unittest.TestCase):
         ability_eval = next(item for item in data["evals"] if item["id"] == 4)
         ability_contract = json.dumps(ability_eval)
 
-        self.assertEqual(4, len(data["evals"]))
-        self.assertIn("4 test scenarios", read(ROOT / "README.md"))
+        self.assertGreaterEqual(len(data["evals"]), 5)
+        readme = read(ROOT / "README.md")
+        self.assertIn("manual evaluation scenarios", readme.lower())
+        self.assertNotIn("evaluation benchmarks", readme.lower())
         self.assertIn("wp_abilities_api_init", ability_contract)
         self.assertIn("meta.mcp.public", ability_contract)
         self.assertRegex(

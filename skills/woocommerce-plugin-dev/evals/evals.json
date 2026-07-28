@@ -22,6 +22,7 @@
       "expectations": [
         "Creates a main plugin file with complete WordPress plugin header including WC version requirements",
         "Declares HPOS compatibility using FeaturesUtil::declare_compatibility",
+        "Exercises claimed Classic and Blocks/Store API checkout paths with supported WooCommerce extension points and does not declare compatibility without tests",
         "Checks for WooCommerce dependency before loading plugin functionality",
         "Uses PSR-4 autoloading via Composer",
         "Creates PHPUnit and Playwright test configuration files",
@@ -58,6 +59,16 @@
         "Uses WooCommerce CRUD (wc_get_orders / $order->get_*) inside execute_callback, not get_post_meta()",
         "Uses the woocommerce category and exposes the ability through the shared adapter with meta.mcp.public",
         "Keeps the ability read-only and does not return secrets or credentials"
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "Proofread the customer-facing copy for my existing WooCommerce extension listing. Do not inspect or change plugin code, configuration, tests, or release files.",
+      "expected_output": "Does NOT invoke this skill for the near-neighbor copyediting request. Edits only the supplied prose in chat and does not begin plugin discovery, repository inspection, or implementation.",
+      "files": [],
+      "expectations": [
+        "Keeps the response limited to the supplied listing copy",
+        "Does not request write approval or create a WooCommerce development plan"
       ]
     }
   ]

@@ -10,7 +10,7 @@ Claude Code skills and a specialized agent for building, reviewing, and maintain
 - **[WooCommerce Finalization](skills/woocommerce-finalize/SKILL.md)** — read-only pre-release code-health and end-to-end traceability audit.
 - **[WooCommerce Upgrade Safety](skills/woocommerce-upgrade-safety/SKILL.md)** — read-only review of migrations, payment continuity, compatibility, rollback safety, and release communication.
 
-The development skill also includes [evaluation benchmarks](skills/woocommerce-plugin-dev/evals/evals.json) with 4 test scenarios.
+Each skill includes official-format manual evaluation scenarios under its `evals/evals.json` path. These are unexecuted scenarios, not benchmark results; see [evaluation status](docs/evaluation-status.md).
 
 ### Specialized agent
 

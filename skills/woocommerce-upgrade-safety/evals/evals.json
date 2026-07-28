@@ -1,0 +1,47 @@
+{
+  "skill_name": "woocommerce-upgrade-safety",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Review a WooCommerce upgrade that migrates millions of order records in batches while new orders continue arriving. Prove interruption, resume, and retry safety without running the migration.",
+      "expected_output": "Performs a read-only upgrade review requiring a stable monotonic cursor over an immutable key, durable progress only after writes commit, bounded batches, and replay evidence showing retries and concurrent growth converge without skipped or duplicated effects.",
+      "files": [],
+      "expectations": [
+        "Requires stable monotonic cursor, interruption-resume, concurrent-growth, and replay tests",
+        "Checks idempotency and progress-commit ordering rather than relying on page offsets",
+        "Does not run migrations or mutate data"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Our upgrade changes a WooCommerce Subscriptions renewal callback. The licensed extension is installed in this authorized staging repository. Verify the hook signature and continuity risk.",
+      "expected_output": "Verifies the callback only from the installed, licensed official source and exact installed version, recording accepted arguments, timing, return behavior, affected saved-payment and renewal paths, and read-only evidence.",
+      "files": [],
+      "expectations": [
+        "Uses the authorized installed source instead of memory, snippets, or another version",
+        "Traces renewal idempotency, provider outcome, order transition, retry, and recovery behavior",
+        "Uses fake or sandbox providers for any requested payment rehearsal"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Review a Subscriptions lifecycle-hook change, but the licensed extension source is not installed and I cannot provide authorized access. Tell me whether the signature is correct.",
+      "expected_output": "Marks the Subscriptions contract blocked/unknown and the affected release surface unverified. Does not guess from memory, public snippets, another version, or similarly named hooks.",
+      "files": [],
+      "expectations": [
+        "States that licensed official-version evidence is required before verifying the contract",
+        "Does not invent a hook signature or claim the release surface passed"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Add a new product-card badge to a WooCommerce plugin. It changes no persisted data, compatibility contract, dependency, payment flow, hook signature, or recovery behavior.",
+      "expected_output": "Does NOT invoke this skill for the described near-neighbor implementation request. Uses the normal WooCommerce development path and reserves upgrade-safety review for an actual existing-installation contract change.",
+      "files": [],
+      "expectations": [
+        "Recognizes that the request lacks an upgrade-risk surface",
+        "Does not manufacture migration, rollback, payment, or Subscriptions requirements"
+      ]
+    }
+  ]
+}
