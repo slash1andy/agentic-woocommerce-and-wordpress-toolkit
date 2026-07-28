@@ -11,8 +11,12 @@ AGENTIC = DEV / "references/agentic-commerce.md"
 APIS = DEV / "references/woocommerce-apis.md"
 MARKETPLACE = DEV / "references/marketplace-submission.md"
 ARCHITECTURE = DEV / "references/plugin-architecture.md"
+CODING = DEV / "references/coding-standards.md"
 SECURITY = DEV / "references/security.md"
 TESTING = DEV / "references/testing.md"
+UX = DEV / "references/ux-guidelines.md"
+FINALIZE = ROOT / "skills/woocommerce-finalize/SKILL.md"
+UPGRADE = ROOT / "skills/woocommerce-upgrade-safety/SKILL.md"
 EVALS = DEV / "evals/evals.json"
 INSTALLATION = ROOT / "docs/installation.md"
 
@@ -75,6 +79,134 @@ class P0ContractsTest(unittest.TestCase):
         self.assertNotIn("AI-assisted code disclosure", text)
         self.assertRegex(text, r"(?i)do(?:es)? not require.{0,80}AI-assistance disclosure")
         self.assertRegex(text, r"(?i)explicit approval.{0,120}(?:authenticate|upload|submit|publish)")
+
+    def test_pr3_guidance_is_repository_first_and_risk_based(self):
+        required = {
+            DEV / "SKILL.md": (
+                "inspect the repository and its conventions first",
+                "ask only for blockers",
+                "keep the brief in chat until the exact save scope is approved",
+                "reuse existing composer, npm, test, and static-analysis setup",
+                "smallest effective risk-based check",
+                "@throws only for exceptions the code can actually throw",
+                "prefix global identifiers",
+                "blocks compatibility only after implementation and tests",
+            ),
+            CODING: (
+                "align syntax and tooling to the project's tested php floor",
+                "follow the repository's established convention",
+                "prefix global identifiers",
+                "@throws only",
+            ),
+            ARCHITECTURE: (
+                "blocks compatibility is conditional",
+                "retained plugin data by default",
+                "explicit opt-in",
+            ),
+            TESTING: (
+                "risk | smallest effective check",
+                "documented project commands",
+                "one phpunit baseline only when",
+                "hpos enabled and disabled",
+                "classic and blocks",
+                "money precision",
+                "replay/idempotency",
+                "migration interruption/resume",
+                "store api session/cart",
+                "official qit plugin and documentation",
+            ),
+            SECURITY: (
+                "`permission_callback` on every rest route",
+                "cookie-authenticated rest mutations require a rest nonce",
+                "application passwords, basic authentication, and oauth do not use rest nonces",
+                "capabilities do not replace csrf protection",
+                "wc_get_logger()",
+                "event ids, outcomes, and masked metadata",
+                "never raw bodies or secrets",
+            ),
+            UX: (
+                "onboarding is optional",
+                "prefer public apis",
+                "feature-detect",
+                "installed target version",
+                "settings page or admin notice",
+                "wcag 2.2 aa",
+            ),
+            MARKETPLACE: (
+                "maintained qit plugin and documentation",
+                "shipped code cannot be payment-locked",
+                "substantive external service may charge",
+                "license-only validation",
+                "wcag 2.2 aa",
+            ),
+            FINALIZE: (
+                "project configuration and evidence",
+                "generic correctness belongs in `/code-review`",
+                "woo traceability and code health",
+            ),
+            UPGRADE: (
+                "stable monotonic cursor or action scheduler",
+                "committed progress",
+                "idempotency, replay, interruption-resume, and concurrent-growth tests",
+                "no skipped or duplicate records",
+                "installed, licensed official source and version",
+                "exact accepted arguments",
+                "blocked/unknown",
+                "fake or sandbox providers",
+                "actual change surface",
+            ),
+        }
+        forbidden = {
+            DEV / "SKILL.md": (
+                "minimum php version: 8.1",
+                "every woocommerce plugin follows this canonical structure",
+                "level 6+ minimum",
+            ),
+            CODING: (
+                "wpcs 3.3.0+",
+                '"php": ">=8.1"',
+                "never use `use function`",
+            ),
+            ARCHITECTURE: (
+                "service container pattern",
+                "wordpress is on the 7.x line",
+                "all new plugins must declare compatibility",
+            ),
+            TESTING: (
+                "testing pyramid",
+                '"@playwright/test": "^1.60"',
+                "overall:** aim for 80%+",
+                "--level 6",
+            ),
+            SECURITY: (
+                "use `permission_callback` with capability checks instead of nonces",
+                "all api requests and responses",
+            ),
+            UX: ("onboardingtasks", "tasklists::add_task", "wcag 2.0 aa"),
+            MARKETPLACE: ("wcag 2.1 aa baseline",),
+            FINALIZE: (
+                "within 12 hours",
+                "level 7",
+                "functions longer than 50 lines",
+                "nesting deeper than 3 levels",
+                "| issue | level |",
+            ),
+            UPGRADE: (
+                "batch processing with `limit` + offset",
+                "major version bumps (x.0.0) start at high",
+            ),
+        }
+
+        for path, markers in required.items():
+            text = read(path).lower()
+            for marker in markers:
+                with self.subTest(path=path, required=marker):
+                    self.assertIn(marker.lower(), text)
+        for path, markers in forbidden.items():
+            text = read(path).lower()
+            for marker in markers:
+                with self.subTest(path=path, forbidden=marker):
+                    self.assertNotIn(marker.lower(), text)
 
     def test_skills_are_explicit_and_read_only_by_default(self):
         skill_paths = (
