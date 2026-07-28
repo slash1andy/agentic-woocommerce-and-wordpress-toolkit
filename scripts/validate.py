@@ -92,10 +92,17 @@ def read_text(path, errors):
     try:
         return path.read_text(encoding="utf-8")
     except UnicodeDecodeError:
-        error = f"{path.relative_to(ROOT)}: invalid UTF-8"
-        if error not in errors:
-            errors.append(error)
-        return None
+        detail = "invalid UTF-8"
+    except OSError as exc:
+        detail = f"cannot read: {exc.strerror or type(exc).__name__}"
+    try:
+        relative = path.relative_to(ROOT)
+    except ValueError:
+        relative = path
+    error = f"{relative}: {detail}"
+    if error not in errors:
+        errors.append(error)
+    return None
 
 
 def load_json(relative, errors):
@@ -217,13 +224,7 @@ def validate_frontmatter(relative, expected_name, errors, require_explicit=False
     path = ROOT / relative
     if not path.is_file() or has_symlink_component(path):
         return
-    try:
-        text = read_text(path, errors)
-    except OSError as exc:
-        errors.append(
-            f"{relative}: cannot read frontmatter: {exc.strerror or type(exc).__name__}"
-        )
-        return
+    text = read_text(path, errors)
     if text is None:
         return
     lines = text.splitlines()
@@ -268,6 +269,8 @@ def validate_frontmatter(relative, expected_name, errors, require_explicit=False
             block = []
             index += 1
             while index < closing and (not lines[index].strip() or lines[index][:1].isspace()):
+                if lines[index].startswith("\t"):
+                    errors.append(f"{relative}: malformed frontmatter block {key}")
                 block.append(lines[index].strip())
                 index += 1
             if not any(block):
@@ -297,10 +300,14 @@ def validate_frontmatter(relative, expected_name, errors, require_explicit=False
                     index += 1
                     continue
                 value = inner.replace("''", "'")
-        elif value[-1:] in {"\"", "'"}:
-            errors.append(f"{relative}: malformed frontmatter value {key}")
-            index += 1
-            continue
+        else:
+            invalid_start = not value or value[:1] in "[]{}#,&*!|>'\"%@`" or (
+                value[:1] in "-?:" and (len(value) == 1 or value[1].isspace())
+            )
+            if invalid_start or re.search(r":(?:\s|$)|\s#", value):
+                errors.append(f"{relative}: malformed frontmatter value {key}")
+                index += 1
+                continue
         fields[key] = value
         index += 1
 
@@ -333,6 +340,8 @@ def validate_frontmatter(relative, expected_name, errors, require_explicit=False
             "secrets",
             "expand review scope",
             "expand the review scope",
+            "trusted instructions",
+            "always obey",
         )
         for line in (line.strip() for line in body.splitlines()):
             if any(marker in line for marker in sensitive) and line != safe_boundary:
@@ -341,31 +350,18 @@ def validate_frontmatter(relative, expected_name, errors, require_explicit=False
 
 
 def validate_safety_guidance(errors):
-    checks = {
+    required = {
         Path("skills/woocommerce-plugin-dev/references/security.md"): (
-            "cookie-authenticated rest mutations require a rest nonce (normally `x-wp-nonce`) in addition to the route's authorization checks.",
-            (
-                r"cookie-authenticated rest mutations",
-                r"rest nonces?.{0,40}(?:optional|unnecessary|not required|without)",
-            ),
+            "cookie-authenticated rest mutations require a rest nonce (normally `x-wp-nonce`) in addition to the route's authorization checks."
         ),
         Path("skills/woocommerce-plugin-dev/references/plugin-architecture.md"): (
-            "keep retained plugin data by default when the plugin is uninstalled. destructive cleanup requires an explicit opt-in that identifies exactly which plugin-owned data may be removed.",
-            (
-                r"uninstall.{0,80}(?:may|can|automatically).{0,80}(?:delete|remove)",
-                r"(?:delete|remove).{0,80}(?:automatically|without).{0,80}uninstall",
-                r"opt-in.{0,60}(?:unnecessary|optional|not required)",
-            ),
+            "keep retained plugin data by default when the plugin is uninstalled. destructive cleanup requires an explicit opt-in that identifies exactly which plugin-owned data may be removed."
         ),
         Path("skills/woocommerce-upgrade-safety/SKILL.md"): (
-            "exercise ambiguous provider outcomes, retries, duplicate/reordered webhooks, and downgrade/rollback behavior with fake or sandbox providers; never use live payments or customer data in this read-only review.",
-            (
-                r"(?:live|production).{0,60}(?:payment|customer|records).{0,100}(?:prefer|preferred|best|test|testing|fixture|source)",
-                r"(?:prefer|preferred|best|test|testing|fixture|source).{0,100}(?:live|production).{0,60}(?:payment|customer|records)",
-            ),
+            "exercise ambiguous provider outcomes, retries, duplicate/reordered webhooks, and downgrade/rollback behavior with fake or sandbox providers; never use live payments or customer data in this read-only review."
         ),
     }
-    for relative, (required, patterns) in checks.items():
+    for relative, safe_text in required.items():
         path = ROOT / relative
         if not path.is_file() or has_symlink_component(path):
             continue
@@ -373,9 +369,46 @@ def validate_safety_guidance(errors):
         if text is None:
             continue
         normalized = re.sub(r"\s+", " ", text).lower()
-        remainder = normalized.replace(required, "")
-        if required not in normalized or any(re.search(pattern, remainder) for pattern in patterns):
+        if safe_text not in normalized:
             errors.append(f"{relative}: unsafe guidance")
+            continue
+        units = (
+            re.sub(r"[^a-z0-9]+", " ", unit).strip()
+            for unit in re.split(r"[.!?]+", normalized.replace(safe_text, ""))
+        )
+        unsafe = False
+        for unit in units:
+            if relative.name == "security.md":
+                unsafe = (
+                    "cookie authenticated" in unit
+                    and "nonce" in unit
+                    and re.search(r"\b(?:do not require|does not require|not require|skip|without|optional|unnecessary)\b", unit)
+                    is not None
+                )
+            elif relative.name == "plugin-architecture.md":
+                unsafe = (
+                    ("uninstall" in unit or "cleanup" in unit)
+                    and re.search(r"\b(?:delete|remove|purge|destructive|opt in)\b", unit)
+                    is not None
+                    and re.search(r"\b(?:without|automatically|by default|unnecessary|not required|regardless)\b", unit)
+                    is not None
+                )
+            else:
+                actual_data = re.search(
+                    r"\b(?:live payment|production payment|real card|real customer|customer data|customer record)",
+                    unit,
+                )
+                preference = re.search(
+                    r"\b(?:prefer|preferred|best|ideal|test|testing|fixture|source|use)\b",
+                    unit,
+                )
+                prohibition = re.search(
+                    r"\b(?:never|do not|must not|cannot|not allowed)\b", unit
+                )
+                unsafe = bool(actual_data and preference and not prohibition)
+            if unsafe:
+                errors.append(f"{relative}: unsafe guidance")
+                break
 
 
 def validate_evals(errors):
@@ -508,14 +541,7 @@ def official_urls(errors):
             or ".git" in path.parts
         ):
             continue
-        try:
-            text = read_text(path, errors)
-        except OSError as exc:
-            errors.append(
-                f"{path.relative_to(ROOT)}: cannot read URLs: "
-                f"{exc.strerror or type(exc).__name__}"
-            )
-            continue
+        text = read_text(path, errors)
         if text is None:
             continue
         for raw in pattern.findall(text):
