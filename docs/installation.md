@@ -2,7 +2,7 @@
 
 The supported installation is a project-scoped native Claude Code plugin from the reviewed `v1.0.0`
 release commit. These commands become usable after that tag is published at the release gate. The
-plugin installs all 3 skills, both current agents, shared references, evals, manifests, and the
+plugin installs all 3 skills, one specialized agent, shared references, evals, manifests, and the
 repository validator together.
 
 ## Prerequisites
@@ -12,14 +12,14 @@ repository validator together.
 
 ## 1. Preflight legacy overrides
 
-A user- or project-level file with either packaged agent name shadows that plugin agent. Run this
+A user- or project-level file with the packaged agent name shadows that plugin agent. Run this
 from the target project's root:
 
 ```bash
 python3 - <<'PY'
 from pathlib import Path
 
-names = {"code-reviewer", "woocommerce-ux-reviewer"}
+names = {"woocommerce-ux-reviewer"}
 collisions = []
 for root in (Path.home() / ".claude/agents", Path(".claude/agents")):
     for path in root.rglob("*.md") if root.is_dir() else ():
@@ -69,7 +69,9 @@ Code from the project root and run `/reload-plugins` after installation.
 Open `/plugin`, select the installed plugin, and confirm it reports:
 
 - skills: `woocommerce-plugin-dev`, `woocommerce-finalize`, `woocommerce-upgrade-safety`
-- agents: `woocommerce-ux-reviewer`, `code-reviewer`
+- agent: `woocommerce-ux-reviewer`
+
+For generic correctness review, use Claude Code's explicit `/code-review` command.
 
 Then invoke a packaged skill by its namespaced command:
 

@@ -57,7 +57,7 @@ class ValidateRepositoryTest(unittest.TestCase):
         self.assertIn("Validation passed.", result.stdout)
 
     def test_missing_manifest_or_component_fails(self):
-        for relative in (".claude-plugin/plugin.json", "agents/code-reviewer.md"):
+        for relative in (".claude-plugin/plugin.json", "agents/woocommerce-ux-reviewer.md"):
             with self.subTest(relative=relative):
                 result = self.run_after(
                     lambda repo, path=relative: (repo / path).unlink(missing_ok=True)
@@ -131,7 +131,8 @@ class ValidateRepositoryTest(unittest.TestCase):
 
     def test_install_contract_is_fail_closed_and_checks_all_agent_collisions(self):
         docs = (ROOT / "docs/installation.md").read_text(encoding="utf-8")
-        combined = docs + (ROOT / "README.md").read_text(encoding="utf-8")
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        combined = docs + readme
 
         self.assertIn(
             "claude plugin marketplace add "
@@ -155,9 +156,13 @@ class ValidateRepositoryTest(unittest.TestCase):
         for marker in (
             'Path.home() / ".claude/agents"',
             'Path(".claude/agents")',
-            'names = {"code-reviewer", "woocommerce-ux-reviewer"}',
+            'names = {"woocommerce-ux-reviewer"}',
         ):
             self.assertIn(marker, combined)
+        self.assertIn("3 skills and 1 specialized agent", readme)
+        for text in (readme, docs):
+            self.assertIn("/code-review", text)
+            self.assertNotIn("code-reviewer", text)
 
     def test_agent_collision_preflight_finds_nested_frontmatter_names(self):
         docs = (ROOT / "docs/installation.md").read_text(encoding="utf-8")
@@ -171,8 +176,8 @@ class ValidateRepositoryTest(unittest.TestCase):
             project.mkdir()
             nested = home / ".claude/agents/nested/custom-name.md"
             nested.parent.mkdir(parents=True)
-            nested.write_text("---\nname: code-reviewer\n---\n", encoding="utf-8")
-            direct = project / ".claude/agents/woocommerce-ux-reviewer.md"
+            nested.write_text("---\nname: woocommerce-ux-reviewer\n---\n", encoding="utf-8")
+            direct = project / ".claude/agents/code-reviewer.md"
             direct.parent.mkdir(parents=True)
             direct.write_text("No frontmatter.\n", encoding="utf-8")
             result = subprocess.run(
@@ -186,7 +191,7 @@ class ValidateRepositoryTest(unittest.TestCase):
 
         self.assertNotEqual(0, result.returncode)
         self.assertIn("custom-name.md", result.stdout)
-        self.assertIn("woocommerce-ux-reviewer.md", result.stdout)
+        self.assertNotIn("code-reviewer.md", result.stdout)
 
     def test_fallback_installs_tag_archive_and_rejects_branch_or_dangling_target(self):
         docs = (ROOT / "docs/installation.md").read_text(encoding="utf-8")
@@ -297,6 +302,25 @@ class ValidateRepositoryTest(unittest.TestCase):
         self.assertNotEqual(0, result.returncode)
         self.assertIn("duplicate key", result.stderr)
 
+    def test_single_woocommerce_ux_agent_is_read_only(self):
+        generic = ROOT / "agents/code-reviewer.md"
+        agents = {path.name for path in (ROOT / "agents").glob("*.md")}
+        self.assertFalse(generic.exists())
+        self.assertEqual({"woocommerce-ux-reviewer.md"}, agents)
+
+        text = (ROOT / "agents/woocommerce-ux-reviewer.md").read_text(encoding="utf-8")
+        frontmatter = text.split("---", 2)[1]
+        fields = dict(line.split(":", 1) for line in frontmatter.splitlines() if line)
+        self.assertEqual({"name", "description", "tools", "model"}, set(fields))
+        tools = [tool.strip() for tool in fields["tools"].split(",")]
+        self.assertEqual(["Read", "Grep", "Glob"], tools)
+        self.assertEqual("inherit", fields["model"].strip())
+        self.assertNotIn("memory", fields)
+        self.assertNotIn("permissionMode", fields)
+        self.assertTrue(
+            {"Write", "Edit", "Bash", "NotebookEdit"}.isdisjoint(tools)
+        )
+
     def test_exact_component_inventory_frontmatter_and_symlinks(self):
         def extra_skill(repo):
             path = repo / "skills/extra/SKILL.md"
@@ -318,19 +342,43 @@ class ValidateRepositoryTest(unittest.TestCase):
                 encoding="utf-8",
             )
 
-        def wrong_agent_name(repo):
-            path = repo / "agents/code-reviewer.md"
+        def generic_agent_path(repo):
+            (repo / "agents/code-reviewer.md").write_text(
+                "---\nname: code-reviewer\ndescription: Generic review.\n---\n",
+                encoding="utf-8",
+            )
+
+        def ux_memory(repo):
+            path = repo / "agents/woocommerce-ux-reviewer.md"
             path.write_text(
                 path.read_text(encoding="utf-8").replace(
-                    "name: code-reviewer", "name: another-reviewer", 1
+                    "model: inherit", "model: inherit\nmemory: user", 1
+                ),
+                encoding="utf-8",
+            )
+
+        def ux_mutating_tools(repo):
+            path = repo / "agents/woocommerce-ux-reviewer.md"
+            path.write_text(
+                path.read_text(encoding="utf-8").replace(
+                    "tools: Read, Grep, Glob", "tools: Read, Grep, Glob, Write", 1
+                ),
+                encoding="utf-8",
+            )
+
+        def wrong_agent_name(repo):
+            path = repo / "agents/woocommerce-ux-reviewer.md"
+            path.write_text(
+                path.read_text(encoding="utf-8").replace(
+                    "name: woocommerce-ux-reviewer", "name: another-reviewer", 1
                 ),
                 encoding="utf-8",
             )
 
         def escaped_agent_symlink(repo):
             outside = repo.parent / "outside-agent.md"
-            outside.write_text("---\nname: code-reviewer\n---\n", encoding="utf-8")
-            path = repo / "agents/code-reviewer.md"
+            outside.write_text("---\nname: woocommerce-ux-reviewer\n---\n", encoding="utf-8")
+            path = repo / "agents/woocommerce-ux-reviewer.md"
             path.unlink()
             path.symlink_to(outside)
 
@@ -354,6 +402,9 @@ class ValidateRepositoryTest(unittest.TestCase):
         for mutate in (
             extra_skill,
             extra_agent,
+            generic_agent_path,
+            ux_memory,
+            ux_mutating_tools,
             duplicate_skill_policy,
             wrong_agent_name,
             escaped_agent_symlink,

@@ -37,7 +37,7 @@ SKILLS = (
     "woocommerce-finalize",
     "woocommerce-upgrade-safety",
 )
-AGENTS = ("woocommerce-ux-reviewer", "code-reviewer")
+AGENTS = ("woocommerce-ux-reviewer",)
 DOCS = (Path("README.md"), Path("docs/installation.md"))
 PROVENANCE = (
     "Upstream provenance: this project originated at "
@@ -225,6 +225,13 @@ def validate_frontmatter(relative, expected_name, errors, require_explicit=False
         errors.append(f"{relative}: frontmatter name must match {expected_name}")
     if require_explicit and fields.get("disable-model-invocation") != "true":
         errors.append(f"{relative}: disable-model-invocation must be true")
+    if expected_name == "woocommerce-ux-reviewer":
+        if set(fields) != {"name", "description", "tools", "model"}:
+            errors.append(f"{relative}: frontmatter must contain only name, description, tools, and model")
+        if fields.get("tools") != "Read, Grep, Glob":
+            errors.append(f"{relative}: frontmatter tools must be exactly Read, Grep, Glob")
+        if fields.get("model") != "inherit":
+            errors.append(f"{relative}: frontmatter model must be inherit")
 
 
 def validate_evals(errors):
@@ -289,7 +296,8 @@ def validate_docs(errors):
         ".claude/skills/claude-woocommerce-toolkit",
         'Path.home() / ".claude/agents"',
         'Path(".claude/agents")',
-        'names = {"code-reviewer", "woocommerce-ux-reviewer"}',
+        'names = {"woocommerce-ux-reviewer"}',
+        "/code-review",
         "/claude-woocommerce-toolkit:woocommerce-plugin-dev",
         "set -eu",
         "git clone --branch v1.0.0 --depth 1",
@@ -304,6 +312,9 @@ def validate_docs(errors):
     for marker in required:
         if marker not in combined:
             errors.append(f"installation docs: missing required guidance: {marker}")
+    for relative, text in texts.items():
+        if "/code-review" not in text or "code-reviewer" in text:
+            errors.append(f"{relative}: generic reviews must use /code-review")
 
     unsafe = False
     shell = "\n".join(re.findall(r"```bash\s*\n(.*?)\n```", combined, re.DOTALL))

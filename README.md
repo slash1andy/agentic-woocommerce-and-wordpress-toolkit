@@ -1,6 +1,6 @@
 # Claude WooCommerce Toolkit
 
-Claude Code skills and agents for building, reviewing, and maintaining WordPress and WooCommerce plugins. The toolkit packages WooCommerce development standards, security guidance, UX review, release checks, and upgrade-safety procedures as a native Claude Code plugin.
+Claude Code skills and a specialized agent for building, reviewing, and maintaining WordPress and WooCommerce plugins. The toolkit packages WooCommerce development standards, security guidance, UX review, release checks, and upgrade-safety procedures as a native Claude Code plugin.
 
 ## What's included
 
@@ -12,23 +12,22 @@ Claude Code skills and agents for building, reviewing, and maintaining WordPress
 
 The development skill also includes [evaluation benchmarks](skills/woocommerce-plugin-dev/evals/evals.json) with 4 test scenarios.
 
-### Agents
+### Specialized agent
 
 - **[WooCommerce UX Reviewer](agents/woocommerce-ux-reviewer.md)** — specialized review of WordPress, WooCommerce, checkout, payment, admin, accessibility, mobile, and conversion UX.
-- **[Code Reviewer](agents/code-reviewer.md)** — general code review across correctness, security, performance, maintainability, tests, and project standards.
 
-This release contains **3 skills and 2 agents**. The repository validator checks that inventory before release.
+This release contains **3 skills and 1 specialized agent**. The repository validator checks that inventory before release.
 
 ## Install the native plugin
 
 After `v1.0.0` is published from the reviewed release commit, install that tag for one project.
-Before installing, check for user- or project-level agent overrides that would shadow a packaged agent:
+Before installing, check for a user- or project-level agent override that would shadow the packaged agent:
 
 ```bash
 python3 - <<'PY'
 from pathlib import Path
 
-names = {"code-reviewer", "woocommerce-ux-reviewer"}
+names = {"woocommerce-ux-reviewer"}
 collisions = []
 for root in (Path.home() / ".claude/agents", Path(".claude/agents")):
     for path in root.rglob("*.md") if root.is_dir() else ():
@@ -77,15 +76,7 @@ All three skills require explicit invocation. Plugin skills use Claude Code's `p
 /claude-woocommerce-toolkit:woocommerce-upgrade-safety Review the 1.4.0 upgrade path
 ```
 
-Request either packaged agent explicitly when you want its review, for example: “Use `claude-woocommerce-toolkit:woocommerce-ux-reviewer` to review this checkout flow.”
-
-## Non-negotiable standards
-
-1. Use WooCommerce CRUD for orders and declare feature compatibility, including HPOS.
-2. Treat input as untrusted: sanitize input, escape output, use nonces, capability checks, and prepared queries.
-3. Keep credentials out of repositories, examples, command arguments, and rendered settings.
-4. Use WordPress internationalization, enqueue, naming, lifecycle, and API conventions.
-5. Require tests appropriate to the behavior and explicit approval before external or production mutations.
+Request the packaged agent explicitly when you want its review, for example: “Use `claude-woocommerce-toolkit:woocommerce-ux-reviewer` to review this checkout flow.” For generic correctness review, use Claude Code's explicit `/code-review` command.
 
 Upstream provenance: this project originated at [Automattic/claude-woocommerce-toolkit](https://github.com/Automattic/claude-woocommerce-toolkit).
 
