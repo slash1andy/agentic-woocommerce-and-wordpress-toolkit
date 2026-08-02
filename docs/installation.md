@@ -1,126 +1,159 @@
-# Installation Guide
+# Installation guide
 
-This guide covers how to install the skills and agents from this toolkit into your Claude Code environment.
+Install the toolkit as a project-scoped native Claude Code plugin under the preserved
+`claude-woocommerce-toolkit` plugin namespace. Use the reviewed `v1.0.0` release commit after that tag
+is published at the release gate. The plugin installs all 3 skills, one read-only UX agent, shared
+references, evals, manifests, and the repository validator together.
 
-## Directory Structure
+## Prerequisites
 
-Claude Code looks for skills and agents in two locations:
+- [Claude Code](https://code.claude.com/docs/en/discover-plugins) with plugin marketplace support
+- A target project where you can choose **Project** installation scope
 
-| Scope | Skills Path | Agents Path |
-|-------|------------|-------------|
-| **Global** (all projects) | `~/.claude/skills/` | `~/.claude/agents/` |
-| **Project** (single project) | `<project>/.claude/skills/` | `<project>/.claude/agents/` |
+## 1. Preflight legacy overrides
 
-Use global installation if you work on multiple WooCommerce projects. Use project-level if you want the tools scoped to a specific plugin repo.
-
-## Step 1: Clone the Repository
-
-```bash
-git clone https://github.com/Automattic/claude-woocommerce-toolkit.git
-cd claude-woocommerce-toolkit
-```
-
-## Step 2: Install the Skill
-
-The WooCommerce Plugin Dev skill is a directory containing `SKILL.md`, reference docs, and evals. Copy the entire directory:
+A user- or project-level file with the packaged agent name shadows that plugin agent. Run this
+from the target project's root:
 
 ```bash
-# Global
-mkdir -p ~/.claude/skills
-cp -r skills/woocommerce-plugin-dev ~/.claude/skills/
+python3 - <<'PY'
+from pathlib import Path
 
-# OR project-level
-mkdir -p /path/to/your/project/.claude/skills
-cp -r skills/woocommerce-plugin-dev /path/to/your/project/.claude/skills/
+names = {"woocommerce-ux-reviewer"}
+collisions = []
+for root in (Path.home() / ".claude/agents", Path(".claude/agents")):
+    for path in root.rglob("*.md") if root.is_dir() else ():
+        try:
+            parts = path.read_text(encoding="utf-8").split("---", 2)
+        except OSError as exc:
+            raise SystemExit(f"Cannot inspect {path}: {exc}") from exc
+        identity = path.stem
+        if len(parts) == 3 and not parts[0].strip():
+            for line in parts[1].splitlines():
+                key, separator, value = line.partition(":")
+                raw_value = value.split("#", 1)[0].strip()
+                if separator and key.strip().strip("\"'") == "name":
+                    if raw_value.lower() not in {"", "null", "~"}:
+                        identity = raw_value.strip("\"'")
+                    break
+        if identity in names:
+            collisions.append(path)
+
+if collisions:
+    print("Resolve existing agent overrides before install:")
+    print(*collisions, sep="\n")
+    raise SystemExit(1)
+PY
 ```
 
-### Verify the Skill
+If any path is reported, stop and deliberately rename or remove that legacy override before
+continuing. Do not overwrite it as part of installation. Standalone skills do not shadow the
+plugin's namespaced skill commands.
 
-Start a Claude Code session and try a trigger phrase:
+## 2. Add and install the reviewed plugin
 
-```
-> I want to build a WooCommerce shipping plugin
-```
-
-Claude should begin the Project Discovery interview from Phase 1 of the skill, asking about your target market, plugin scope, technical requirements, etc.
-
-## Step 3: Install the Agents
-
-Copy the agent definition files:
+From a shell in the target project's root, declare both the pinned marketplace and plugin at
+project scope:
 
 ```bash
-# Global
-mkdir -p ~/.claude/agents
-cp agents/woocommerce-ux-reviewer.md ~/.claude/agents/
-cp agents/code-reviewer.md ~/.claude/agents/
-
-# OR project-level
-mkdir -p /path/to/your/project/.claude/agents
-cp agents/*.md /path/to/your/project/.claude/agents/
+claude plugin marketplace add https://github.com/slash1andy/agentic-woocommerce-and-wordpress-toolkit.git#v1.0.0 --scope project
+claude plugin install claude-woocommerce-toolkit@claude-woocommerce-toolkit --scope project
 ```
 
-### Verify the Agents
+The commands write the marketplace source and enabled plugin to the target repository's
+`.claude/settings.json`. Collaborators review and accept those entries when they trust the project.
+The marketplace source is pinned to `v1.0.0`; do not replace it with a mutable branch. Start Claude
+Code from the project root and run `/reload-plugins` after installation.
 
-The **UX reviewer** agent triggers when you complete UX-critical work or explicitly request a review:
+## 3. Verify the installation
 
+Open `/plugin`, select the installed plugin, and confirm it reports:
+
+- skills: `woocommerce-plugin-dev`, `woocommerce-finalize`, `woocommerce-upgrade-safety`
+- agent: `woocommerce-ux-reviewer`
+
+For generic correctness review, use Claude Code's explicit `/code-review` command.
+
+Then invoke a packaged skill by its namespaced command:
+
+```text
+/claude-woocommerce-toolkit:woocommerce-plugin-dev Build a WooCommerce shipping extension
 ```
-> Can you review the payment settings page I just built?
+
+The skill should begin repository-first discovery and stop at its write-approval gate. Invoke the
+other explicit-only skills with:
+
+```text
+/claude-woocommerce-toolkit:woocommerce-finalize Review this release candidate
+/claude-woocommerce-toolkit:woocommerce-upgrade-safety Review this upgrade path
 ```
 
-The **code reviewer** agent triggers after completing a chunk of code:
+## Fallback: copy the complete reviewed plugin
 
-```
-> I've finished the REST API endpoint, please review it
-```
-
-Both agents should announce themselves and follow their structured review methodology.
-
-## Step 4: Agent Memory (Optional)
-
-Both agents support persistent memory — they remember patterns, conventions, and feedback across conversations. The memory directories are created automatically on first use:
-
-- `~/.claude/agent-memory/woocommerce-ux-reviewer/`
-- `~/.claude/agent-memory/code-reviewer/`
-
-No setup required. The agents will create these directories when they first need to save a memory.
-
-## Updating
-
-To update to the latest version:
+Use this only when marketplace installation is unavailable. Copy the entire reviewed repository into the project's skills directory as one skills-directory plugin; do not copy individual skills, agents, or references.
 
 ```bash
-cd claude-woocommerce-toolkit
-git pull origin main
+(
+set -eu
+project_root="$(pwd -P)"
+for path in .claude .claude/skills; do
+  if [ -L "$path" ]; then
+    printf 'Refusing symlinked installation path: %s\n' "$path" >&2
+    exit 1
+  fi
+done
+mkdir -p .claude/skills
+skills_root="$(cd .claude/skills && pwd -P)"
+if [ "$skills_root" != "$project_root/.claude/skills" ]; then
+  printf 'Refusing installation outside project skills directory\n' >&2
+  exit 1
+fi
+target="$skills_root/claude-woocommerce-toolkit"
+if [ -e "$target" ] || [ -L "$target" ]; then
+  printf 'Refusing to overwrite existing path: %s\n' "$target" >&2
+  exit 1
+fi
+
+work="$(mktemp -d "$project_root/.claude/skills/.claude-woocommerce-toolkit.XXXXXX")"
+trap 'rm -rf -- "$work"' EXIT
+source="$work/source"
+plugin="$work/plugin"
+archive="$work/plugin.tar"
+
+git clone --branch v1.0.0 --depth 1 \
+  https://github.com/slash1andy/agentic-woocommerce-and-wordpress-toolkit.git "$source"
+git -C "$source" show-ref --verify --quiet refs/tags/v1.0.0
+test "$(git -C "$source" rev-parse HEAD)" = \
+  "$(git -C "$source" rev-parse 'refs/tags/v1.0.0^{commit}')"
+
+mkdir "$plugin"
+git -C "$source" archive --format=tar --output="$archive" refs/tags/v1.0.0
+tar -xf "$archive" -C "$plugin"
+test ! -e "$plugin/.git"
+
+python3 -B "$plugin/scripts/validate.py"
+claude plugin validate "$plugin/.claude-plugin/plugin.json" --strict
+claude plugin validate "$plugin/.claude-plugin/marketplace.json" --strict
+mv "$plugin" "$target"
+)
 ```
 
-Then re-copy the files to your installation location. Your agent memory is stored separately and won't be affected by updates.
+Run `/reload-plugins`, then repeat the namespaced invocation check above. Launch Claude Code from the project root and accept workspace trust if discovery is empty so the skills-directory plugin can load.
 
-## Symlink Alternative
+## Release validation
 
-If you prefer to stay in sync with the repo without re-copying, use symlinks:
+From a reviewed source checkout, run the offline repository gate and Claude's strict manifest validators:
 
 ```bash
-# Skill (symlink the directory)
-ln -sf "$(pwd)/skills/woocommerce-plugin-dev" ~/.claude/skills/woocommerce-plugin-dev
-
-# Agents (symlink individual files)
-ln -sf "$(pwd)/agents/woocommerce-ux-reviewer.md" ~/.claude/agents/woocommerce-ux-reviewer.md
-ln -sf "$(pwd)/agents/code-reviewer.md" ~/.claude/agents/code-reviewer.md
+python3 -B scripts/validate.py
+claude plugin validate .claude-plugin/plugin.json --strict
+claude plugin validate .claude-plugin/marketplace.json --strict
 ```
 
-Then a `git pull` automatically updates your installation.
+URL checks are separate and networked:
 
-## Troubleshooting
+```bash
+python3 -B scripts/validate.py --check-urls
+```
 
-**Skill not triggering?**
-- Ensure the file is at `~/.claude/skills/woocommerce-plugin-dev/SKILL.md` (the `SKILL.md` filename is required)
-- Check that the `references/` directory is alongside `SKILL.md`
-
-**Agent not available?**
-- Agent files must have a `.md` extension
-- Check that the YAML frontmatter at the top of each agent file is valid
-- Restart your Claude Code session after adding new agents
-
-**Memory not persisting?**
-- Ensure `~/.claude/agent-memory/` is writable
-- The agents create their subdirectories on first use
+A future release should be installed only after its tag and contents receive the same review and validation. Do not update an installation from a mutable checkout.

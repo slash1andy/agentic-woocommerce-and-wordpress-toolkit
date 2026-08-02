@@ -4,29 +4,29 @@
     {
       "id": 1,
       "prompt": "I want to build a WooCommerce plugin that adds a loyalty points system. Customers earn points on purchases and can redeem them for discounts. Start the project for me.",
-      "expected_output": "Should conduct a project discovery interview asking about target market, point earning rates, redemption mechanics, admin controls, and compliance needs. Should NOT start writing code until the interview is complete and a PROJECT_BRIEF.md is saved.",
+      "expected_output": "Inspects the repository and its existing architecture, dependencies, tests, and conventions before proposing work. Asks only for material requirements that repository evidence cannot answer, then presents a minimal approval-gated plan. Does not write files until the user approves the exact scope.",
       "files": [],
       "expectations": [
-        "Asks the user about target market and distribution channel before writing code",
-        "Asks about the customer-facing experience (how points are displayed, redeemed)",
-        "Asks about admin controls (point rates, manual adjustments, reports)",
-        "Asks about financial/compliance considerations (point liability, expiration, GDPR)",
-        "Does NOT scaffold code or create files before completing the interview"
+        "Inspects repository structure, manifests, dependencies, neighboring code, tests, and project instructions before selecting an implementation",
+        "Reuses the repository's existing architecture and asks only about unresolved product requirements such as earning, redemption, admin controls, and compliance",
+        "Presents the smallest implementation and verification scope for approval",
+        "Does not scaffold code or create files before receiving explicit write approval"
       ]
     },
     {
       "id": 2,
       "prompt": "OK I've answered all your questions about my WooCommerce shipping rate calculator plugin. Here's the brief: it calculates shipping based on package dimensions and zone. Target market is US small businesses, sold on WooCommerce Marketplace. Needs admin settings for zones and rates, customer sees calculated rates at checkout. No external APIs. Now scaffold the plugin structure for me.",
-      "expected_output": "Should create a properly structured WooCommerce plugin scaffold with HPOS declaration, proper main plugin file, PSR-4 autoloading, WooCommerce dependency checking, shipping method registration, settings page, test configuration, and all security measures in place.",
+      "expected_output": "Inspects and extends the repository's existing plugin structure with the smallest supported shipping-method implementation. Reuses current loading, dependency, settings, and test patterns; adds new tooling only when the requested behavior requires it. Exercises Classic and Blocks/Store API checkout paths, and declares compatibility only when evidence supports it.",
       "files": [],
       "expectations": [
-        "Creates a main plugin file with complete WordPress plugin header including WC version requirements",
-        "Declares HPOS compatibility using FeaturesUtil::declare_compatibility",
+        "Inspects the repository before adding files and follows its existing loading, namespace, dependency, and test conventions",
+        "Keeps the existing main plugin header current with supported WordPress and WooCommerce requirements",
+        "Declares HPOS compatibility only when the implementation touches order storage and tests support the declaration",
+        "Exercises claimed Classic and Blocks/Store API checkout paths with supported WooCommerce extension points and does not declare compatibility without tests",
         "Checks for WooCommerce dependency before loading plugin functionality",
-        "Uses PSR-4 autoloading via Composer",
-        "Creates PHPUnit and Playwright test configuration files",
+        "Does not add Composer, PSR-4, PHPUnit, Playwright, or replacement scaffolding when the repository does not need it",
         "All user input handling includes sanitization (sanitize_text_field, absint, etc.)",
-        "All output includes proper escaping (esc_html, esc_attr, esc_url)",
+        "Rendered HTML output uses context-appropriate escaping (esc_html, esc_attr, esc_url)",
         "Registers the shipping method using woocommerce_shipping_methods filter",
         "Creates a WooCommerce Settings integration for zone/rate configuration"
       ]
@@ -34,7 +34,7 @@
     {
       "id": 3,
       "prompt": "I need to add a custom REST API endpoint to my WooCommerce plugin that lets external systems query order fulfillment status. The endpoint should be at /wp-json/my-plugin/v1/fulfillment/{order_id} and return the fulfillment status, tracking number, and estimated delivery date. Write the endpoint class with full tests.",
-      "expected_output": "Should create a REST API controller class with proper permission callbacks, input validation, HPOS-compatible order data retrieval, sanitized/escaped output, and both unit and integration tests covering auth, valid requests, invalid order IDs, and missing data scenarios.",
+      "expected_output": "Creates a REST API controller class with proper permission callbacks, input validation, HPOS-compatible order data retrieval, schema-declared JSON output, and unit and integration tests covering authentication, valid requests, invalid order IDs, and missing data.",
       "files": [],
       "expectations": [
         "Uses permission_callback with current_user_can check (not just __return_true)",
@@ -42,22 +42,32 @@
         "Uses WooCommerce CRUD ($order->get_meta()) not get_post_meta() for order data",
         "Returns properly structured JSON with appropriate HTTP status codes",
         "Includes PHPUnit tests for: authentication required, valid order, invalid order ID, order without fulfillment data",
-        "All string output in the response uses proper escaping",
+        "Response values match the declared schema and retain their native JSON types",
         "Registers the route in rest_api_init hook"
       ]
     },
     {
       "id": 4,
-      "prompt": "I'm building a WooCommerce gateway-companion plugin and I want it to be ready for AI shopping agents. I'd like to expose a read-only 'recent orders' operation that an AI assistant can call through the WooCommerce MCP server. How should I build that?",
-      "expected_output": "Should register a WordPress Ability on the abilities_api_init hook via wp_register_ability() with input/output schema and a real permission_callback, default to read-only, use WooCommerce CRUD inside execute_callback, and expose it through the WooCommerce MCP server via the woocommerce_mcp_include_ability filter (or meta.mcp.public for the generic MCP Adapter default server). Should NOT expose secrets or use an open permission check.",
+      "prompt": "I'm building a WooCommerce gateway-companion plugin and I want it to be ready for AI shopping agents. I'd like to expose a read-only 'recent orders' operation through the shared WordPress MCP Adapter. How should I build that?",
+      "expected_output": "Registers a WordPress Ability on the wp_abilities_api_init hook via wp_register_ability() with the woocommerce category, input/output schema, a real permission_callback, and meta.mcp.public for the shared WordPress MCP Adapter. Defaults to read-only and uses WooCommerce CRUD inside execute_callback. Treats woocommerce_mcp_include_ability as deprecated endpoint compatibility only. Does not expose secrets or use an open permission check.",
       "files": [],
       "expectations": [
-        "Registers the ability on the abilities_api_init hook, guarded by function_exists('wp_register_ability')",
+        "Registers the ability on the wp_abilities_api_init hook, guarded by function_exists('wp_register_ability')",
         "Defines input_schema and output_schema for the ability",
         "Gates the ability with a real permission_callback (e.g. current_user_can('edit_shop_orders') or 'manage_woocommerce'), not an open check",
         "Uses WooCommerce CRUD (wc_get_orders / $order->get_*) inside execute_callback, not get_post_meta()",
-        "Exposes the ability via the woocommerce_mcp_include_ability filter or the meta.mcp.public flag",
+        "Uses the woocommerce category and exposes the ability through the shared adapter with meta.mcp.public",
         "Keeps the ability read-only and does not return secrets or credentials"
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "Proofread the customer-facing copy for my existing WooCommerce extension listing. Do not inspect or change plugin code, configuration, tests, or release files.",
+      "expected_output": "Does not invoke this skill for the near-neighbor copyediting request. Edits only the supplied prose in chat and does not begin plugin discovery, repository inspection, or implementation.",
+      "files": [],
+      "expectations": [
+        "Keeps the response limited to the supplied listing copy",
+        "Does not request write approval or create a WooCommerce development plan"
       ]
     }
   ]

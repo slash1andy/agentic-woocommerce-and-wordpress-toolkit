@@ -1,150 +1,100 @@
-# Claude WooCommerce Toolkit
+# Agentic WooCommerce and WordPress toolkit
 
-A collection of Claude Code skills and agents for building, reviewing, and maintaining WordPress and WooCommerce plugins. These tools encode professional development standards, security best practices, and UX guidelines drawn from the official WordPress Plugin Handbook, WooCommerce developer documentation, and fintech-grade security practices.
+This repository packages Claude Code skills and a read-only UX agent under the preserved
+`claude-woocommerce-toolkit` plugin namespace. The toolkit starts from the target repository, uses
+official platform APIs, and keeps writes and release actions behind explicit approval.
 
-## What's Included
+## What's included
 
 ### Skills
 
-**[WooCommerce Plugin Development](skills/woocommerce-plugin-dev/SKILL.md)** — A comprehensive skill that guides you through building WooCommerce Marketplace-ready plugins from scratch. It operates in two phases:
+- **[WooCommerce plugin development](skills/woocommerce-plugin-dev/SKILL.md)** — explicit,
+  approval-gated implementation guidance with 10 focused references.
+- **[WooCommerce finalization](skills/woocommerce-finalize/SKILL.md)** — read-only pre-release code
+  health and traceability review.
+- **[WooCommerce upgrade safety](skills/woocommerce-upgrade-safety/SKILL.md)** — read-only review of
+  migrations, commerce continuity, compatibility, and recovery.
 
-1. **Project Discovery** — structured interview to produce a project brief
-2. **Development Execution** — scaffold and build following all standards
+Each skill includes official-format manual evaluation scenarios under its `evals/evals.json` path.
+These are unexecuted scenarios, not benchmark results; see [evaluation status](docs/evaluation-status.md).
 
-Includes 10 reference documents covering every aspect of plugin development:
+### UX agent
 
-| Reference | What It Covers |
-|-----------|---------------|
-| [Coding Standards](skills/woocommerce-plugin-dev/references/coding-standards.md) | WordPress PHP/JS/CSS standards, WPCS 3.3.0+, PSR-4 autoloading |
-| [Security](skills/woocommerce-plugin-dev/references/security.md) | Input sanitization, output escaping, nonces, CSRF, SQL injection prevention, PCI-DSS |
-| [Testing](skills/woocommerce-plugin-dev/references/testing.md) | PHPUnit, Playwright E2E, security tests, financial precision tests, CI/CD |
-| [Plugin Architecture](skills/woocommerce-plugin-dev/references/plugin-architecture.md) | File structure, bootstrapping, HPOS declaration, uninstall handlers |
-| [WooCommerce APIs](skills/woocommerce-plugin-dev/references/woocommerce-apis.md) | Order/Product CRUD, hooks, REST API, Store API, Additional Checkout Fields, Action Scheduler |
-| [UX Guidelines](skills/woocommerce-plugin-dev/references/ux-guidelines.md) | Navigation, settings design, onboarding, admin notices, accessibility |
-| [Abilities & MCP](skills/woocommerce-plugin-dev/references/abilities-and-mcp.md) | Exposing operations to AI agents via the WordPress Abilities API + MCP Adapter |
-| [Agentic Commerce](skills/woocommerce-plugin-dev/references/agentic-commerce.md) | AI-agent discovery & checkout readiness (Abilities/MCP, ACP, AP2) |
-| [PCI Script Management](skills/woocommerce-plugin-dev/references/pci-script-management.md) | PCI DSS v4.0.1 payment-page script requirements (6.4.3 / 11.6.1) |
-| [Marketplace Submission](skills/woocommerce-plugin-dev/references/marketplace-submission.md) | QIT managed tests, Marketplace + WordPress.org distribution |
+- **[WooCommerce UX reviewer](agents/woocommerce-ux-reviewer.md)** — focused review of shopper and
+  merchant flows across storefront, checkout, payment, admin, accessibility, mobile, and recovery.
 
-Also includes [evaluation benchmarks](skills/woocommerce-plugin-dev/evals/evals.json) with 3 test scenarios.
+This release contains **3 skills and 1 read-only UX agent**. The repository validator checks that
+inventory before release.
 
-**[WooCommerce Finalization](skills/woocommerce-finalize/SKILL.md)** — Pre-release code health and traceability audit. Runs after code review to catch structural issues that checklists miss:
+## Install the native plugin
 
-- **Code Health** — dead code detection, duplication analysis, structural complexity (god classes, deep nesting)
-- **Traceability Analysis** — end-to-end verification tracing every UI interaction through AJAX/REST handlers, business logic, data access, and database. Includes 5 payment-gateway-specific trace paths (payment, refund, settings, token, webhook flows)
-
-**[WooCommerce Upgrade Safety](skills/woocommerce-upgrade-safety/SKILL.md)** — Pre-release upgrade safety review that validates what happens when existing merchants upgrade between versions:
-
-- **Database Migration Safety** — idempotency, batching, version gates, HPOS dual-table compatibility
-- **Payment Continuity** — saved token preservation, active subscription safety, pending transaction handling, webhook backward compatibility
-- **Hook/Filter Compatibility** — removed hooks, changed signatures, deprecation notices
-- **Rollback Safety** — downgrade resilience, WordPress auto-update safety
-- **Changelog Quality** — upgrade notices, breaking change documentation, version metadata
-
-### Agents
-
-**[WooCommerce UX Reviewer](agents/woocommerce-ux-reviewer.md)** — An expert UX review agent specialized in WordPress, WooCommerce, and payment system interfaces. Reviews checkout flows, payment gateway integrations, admin UI, onboarding experiences, and error states against dimensions including clarity, trust signals, accessibility (WCAG 2.1 AA), mobile responsiveness, and conversion impact.
-
-**[Code Reviewer](agents/code-reviewer.md)** — A general-purpose code review agent that evaluates code across six dimensions: correctness, security, performance, code quality, test coverage, and project standards alignment. Not WordPress-specific, but works well in any WooCommerce project context.
-
-## Prerequisites
-
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI installed and configured
-
-## Installation
-
-See the [Installation Guide](docs/installation.md) for detailed setup instructions.
-
-### Quick Start
-
-Clone this repository:
+After `v1.0.0` is published from the reviewed release commit, install that tag for one project.
+Before installing, check for a user- or project-level agent override that would shadow the packaged agent:
 
 ```bash
-git clone https://github.com/Automattic/claude-woocommerce-toolkit.git
+python3 - <<'PY'
+from pathlib import Path
+
+names = {"woocommerce-ux-reviewer"}
+collisions = []
+for root in (Path.home() / ".claude/agents", Path(".claude/agents")):
+    for path in root.rglob("*.md") if root.is_dir() else ():
+        try:
+            parts = path.read_text(encoding="utf-8").split("---", 2)
+        except OSError as exc:
+            raise SystemExit(f"Cannot inspect {path}: {exc}") from exc
+        identity = path.stem
+        if len(parts) == 3 and not parts[0].strip():
+            for line in parts[1].splitlines():
+                key, separator, value = line.partition(":")
+                raw_value = value.split("#", 1)[0].strip()
+                if separator and key.strip().strip("\"'") == "name":
+                    if raw_value.lower() not in {"", "null", "~"}:
+                        identity = raw_value.strip("\"'")
+                    break
+        if identity in names:
+            collisions.append(path)
+
+if collisions:
+    print("Resolve existing agent overrides before install:")
+    print(*collisions, sep="\n")
+    raise SystemExit(1)
+PY
 ```
 
-**Install skills** (copy or symlink into your Claude Code skills directory):
+From a shell in the target project's root, declare both the pinned marketplace and plugin at
+project scope:
 
 ```bash
-# Global installation (available in all projects)
-cp -r claude-woocommerce-toolkit/skills/woocommerce-plugin-dev ~/.claude/skills/
-cp -r claude-woocommerce-toolkit/skills/woocommerce-finalize ~/.claude/skills/
-cp -r claude-woocommerce-toolkit/skills/woocommerce-upgrade-safety ~/.claude/skills/
-
-# Project-level installation (available only in one project)
-cp -r claude-woocommerce-toolkit/skills/* /path/to/your/project/.claude/skills/
+claude plugin marketplace add https://github.com/slash1andy/agentic-woocommerce-and-wordpress-toolkit.git#v1.0.0 --scope project
+claude plugin install claude-woocommerce-toolkit@claude-woocommerce-toolkit --scope project
 ```
 
-**Install the agents** (copy or symlink into your Claude Code agents directory):
-
-```bash
-# Global installation
-cp claude-woocommerce-toolkit/agents/*.md ~/.claude/agents/
-
-# Project-level installation
-cp claude-woocommerce-toolkit/agents/*.md /path/to/your/project/.claude/agents/
-```
+These commands write the marketplace source and enabled plugin to the target repository's
+`.claude/settings.json`, where collaborators can review and accept them. Run `/reload-plugins` in
+Claude Code afterward. See the [installation guide](docs/installation.md) for validation and the
+single complete-copy fallback.
 
 ## Usage
 
-### WooCommerce Plugin Dev Skill
+All three skills require explicit invocation. Plugin skills use Claude Code's `plugin-name:skill-name` namespace:
 
-The skill triggers automatically when you mention building a WooCommerce plugin. You can also invoke it directly:
-
-```
-> I want to build a WooCommerce plugin that adds a loyalty points system
-
-Claude will conduct a project discovery interview before writing any code,
-then scaffold and build following all standards in the reference docs.
+```text
+/claude-woocommerce-toolkit:woocommerce-plugin-dev Build a loyalty-points extension
+/claude-woocommerce-toolkit:woocommerce-finalize Review this release candidate
+/claude-woocommerce-toolkit:woocommerce-upgrade-safety Review the 1.4.0 upgrade path
 ```
 
-Example trigger phrases:
-- "Build a WooCommerce plugin..."
-- "Create a payment gateway extension..."
-- "Start a new Woo extension for..."
-- "Scaffold a shipping method plugin..."
+Request the packaged agent explicitly when you want its review. For example, ask Claude Code to use
+`claude-woocommerce-toolkit:woocommerce-ux-reviewer` to review a checkout flow. For generic
+correctness review, use the explicit `/code-review` command.
 
-### UX Payments Reviewer Agent
-
-The agent is invoked automatically when you complete UX-critical work, or you can request a review:
-
-```
-> Can you review the checkout flow I just built?
-
-Claude will launch the UX reviewer agent to assess clarity, trust signals,
-error handling, accessibility, mobile responsiveness, and conversion impact.
-```
-
-### Code Reviewer Agent
-
-Triggered after completing a logical chunk of code:
-
-```
-> I've finished the payment gateway class, can you review it?
-
-Claude will launch the code reviewer agent to check correctness, security,
-performance, code quality, test coverage, and standards alignment.
-```
-
-## Non-Negotiable Standards
-
-The WooCommerce plugin dev skill enforces these rules on every file:
-
-1. **HPOS compatibility is mandatory** — use WooCommerce CRUD, never `get_post_meta()` for orders
-2. **All user input is hostile** — sanitize on input, escape on output, prepared statements for DB
-3. **Nonces and capability checks on every form and AJAX handler**
-4. **Every public function has a PHPDoc block** with `@since`, `@param`, `@return`
-5. **No direct database queries** when WooCommerce/WordPress provides an API
-6. **All strings are translatable** using the plugin's text domain
-7. **Tests exist for every feature** — unit, integration, and E2E for user-facing flows
-8. **Prefix everything** — functions, hooks, options, meta keys, REST routes
-9. **WordPress enqueue system** for all scripts and styles
-10. **Declare all WooCommerce feature compatibility** via `FeaturesUtil`
+Upstream provenance: this project originated at [Automattic/claude-woocommerce-toolkit](https://github.com/Automattic/claude-woocommerce-toolkit).
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on proposing changes, adding reference docs, and submitting evals.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidance. Run `python3 -B scripts/validate.py` and the commands documented in the [installation guide](docs/installation.md) before proposing a release.
 
 ## License
 
-This project is licensed under the GPL v2 or later — see the [LICENSE](LICENSE) file for details.
+GPL-2.0-or-later. See [LICENSE](LICENSE).

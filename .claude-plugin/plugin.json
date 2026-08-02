@@ -1,0 +1,11 @@
+{
+  "name": "claude-woocommerce-toolkit",
+  "version": "1.0.0",
+  "description": "Claude Code skills and a read-only UX agent for WordPress and WooCommerce plugin work.",
+  "author": {
+    "name": "Andrew Wikel",
+    "url": "https://github.com/slash1andy"
+  },
+  "repository": "https://github.com/slash1andy/agentic-woocommerce-and-wordpress-toolkit",
+  "license": "GPL-2.0-or-later"
+}

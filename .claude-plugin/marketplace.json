@@ -1,0 +1,14 @@
+{
+  "name": "claude-woocommerce-toolkit",
+  "description": "Claude Code skills and a read-only UX agent for WordPress and WooCommerce plugin work.",
+  "owner": {
+    "name": "Andrew Wikel",
+    "url": "https://github.com/slash1andy"
+  },
+  "plugins": [
+    {
+      "name": "claude-woocommerce-toolkit",
+      "source": "./"
+    }
+  ]
+}
