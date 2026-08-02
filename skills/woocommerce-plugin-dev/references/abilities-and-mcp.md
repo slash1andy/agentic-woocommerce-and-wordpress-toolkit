@@ -1,9 +1,8 @@
-# WordPress Abilities API & MCP Reference
+# WordPress Abilities API and MCP reference
 
-This reference covers how a WooCommerce plugin exposes its functionality to AI agents and
-automation tools using the **WordPress Abilities API** and the **Model Context Protocol (MCP)**.
-By mid-2026 this is a first-class, officially-supported extension surface — distinct from, and
-sitting alongside, the REST API and Store API that this toolkit already covers.
+Use this reference to expose WooCommerce plugin operations to agents and automation through the
+**WordPress Abilities API** and **Model Context Protocol (MCP)**. Keep this surface distinct from the
+REST API and Store API.
 
 **Official sources:**
 - WordPress Abilities API (announcement): https://developer.wordpress.org/news/2025/11/introducing-the-wordpress-abilities-api/
@@ -12,30 +11,31 @@ sitting alongside, the REST API and Store API that this toolkit already covers.
 - WooCommerce MCP integration: https://developer.woocommerce.com/docs/features/mcp/
 - WooCommerce AI overview: https://developer.woocommerce.com/docs/getting-started/ai/
 - Official WooCommerce demo plugin: https://github.com/woocommerce/wc-mcp-ability
-- Model Context Protocol spec: https://modelcontextprotocol.io/
+- Model Context Protocol spec: https://modelcontextprotocol.io/specification/2026-07-28
 
 > **Status (verify at build time — this area moves fast).** The Abilities API is a core WordPress API
 > introduced in 6.9 and is also distributed as the canonical `wordpress/abilities-api` plugin +
 > Composer package; confirm the target WordPress version and guard with
-> `function_exists( 'wp_register_ability' )`. WooCommerce shipped its **MCP integration as a beta in
-> WooCommerce 10.3** (Oct 2025) and introduced **canonical product/order domain abilities in 10.9**.
+> `function_exists( 'wp_register_ability' )`. WooCommerce's MCP integration is currently a
+> **developer preview**; it first shipped as a beta in WooCommerce 10.3 (Oct 2025) and introduced
+> **canonical product/order domain abilities in 10.9**.
 > The earlier `Automattic/wp-feature-api` and `Automattic/wordpress-mcp` projects are the lineage of
 > this work; new code should target the **Abilities API + MCP Adapter**, not the Feature API.
 
 ---
 
-## Table of Contents
-1. [The Three-Layer Model](#the-three-layer-model)
-2. [Registering an Ability](#registering-an-ability)
-3. [Exposing an Ability Through MCP](#exposing-an-ability-through-mcp)
-4. [The WooCommerce Path](#the-woocommerce-path)
-5. [Security & Permissions](#security--permissions)
-6. [Connecting an MCP Client](#connecting-an-mcp-client)
+## Table of contents
+1. [The three-layer model](#the-three-layer-model)
+2. [Registering an ability](#registering-an-ability)
+3. [Exposing an ability through MCP](#exposing-an-ability-through-mcp)
+4. [The WooCommerce path](#the-woocommerce-path)
+5. [Security and permissions](#security-and-permissions)
+6. [Connecting an MCP client](#connecting-an-mcp-client)
 7. [Checklist](#checklist)
 
 ---
 
-## The Three-Layer Model
+## The three-layer model
 
 Keep these three layers distinct — they are separate projects with separate jobs:
 
@@ -45,15 +45,13 @@ Keep these three layers distinct — they are separate projects with separate jo
 | **MCP Adapter** | The official bridge that projects registered abilities as **MCP tools, resources, and prompts** over HTTP and STDIO transports, so any MCP client can discover and invoke them. | `WordPress/mcp-adapter` |
 | **MCP client / agent** | The consumer — Claude, an in-site assistant, an automation runner — that speaks the Model Context Protocol. | external |
 
-The flow is one-directional: **register an Ability → the MCP Adapter exposes it → an agent calls it**,
-and execution always runs back through the ability's own permission callback. An ability is *not*
-inherently "AI-only" — the same registered capability is reusable by REST, WP-CLI, automation, and
-admin tooling. Registering abilities is therefore a general interoperability investment, not just an
-AI feature.
+The flow is one-directional: **register an Ability → the MCP Adapter exposes it → an agent calls it**.
+Execution always returns through the ability's permission callback. The same registered capability
+can support REST, WP-CLI, automation, and admin tooling.
 
 ---
 
-## Registering an Ability
+## Registering an ability
 
 Register abilities on the `wp_abilities_api_init` hook with `wp_register_ability()`. Always guard on
 `function_exists()` so the plugin degrades gracefully on sites without the API.
@@ -137,7 +135,7 @@ before assigning it.
 
 ---
 
-## Exposing an Ability Through MCP
+## Exposing an ability through MCP
 
 A registered ability is not automatically reachable by an external agent — it must be exposed
 through an MCP server. There are two routes.
@@ -169,7 +167,7 @@ WooCommerce version; new integrations should use the shared WordPress MCP Adapte
 
 ---
 
-## The WooCommerce Path
+## The WooCommerce path
 
 A complete, minimal WooCommerce ability registers on `wp_abilities_api_init`, uses the WooCommerce
 category, gates execution on a WooCommerce capability, and opts into the shared MCP Adapter with
@@ -201,7 +199,7 @@ function register_abilities(): void {
 		'plugin-slug/store-summary',
 		array(
 			'label'               => __( 'Get Store Summary', 'plugin-slug' ),
-			'description'         => __( 'Read-only store name, currency, and order counts.', 'plugin-slug' ),
+			'description'         => __( 'Read-only store name, currency, and WooCommerce version.', 'plugin-slug' ),
 			'category'            => 'woocommerce',
 			'meta'                => array(
 				'mcp' => array(
@@ -209,7 +207,16 @@ function register_abilities(): void {
 				),
 			),
 			'input_schema'        => array( 'type' => 'object', 'properties' => array() ),
-			'output_schema'       => array( 'type' => 'object' ),
+			'output_schema'       => array(
+				'type'                 => 'object',
+				'properties'           => array(
+					'store_name'          => array( 'type' => 'string' ),
+					'currency'            => array( 'type' => 'string' ),
+					'woocommerce_version' => array( 'type' => 'string' ),
+				),
+				'required'             => array( 'store_name', 'currency', 'woocommerce_version' ),
+				'additionalProperties' => false,
+			),
 			'execute_callback'    => __NAMESPACE__ . '\\get_store_summary',
 			'permission_callback' => static fn (): bool => current_user_can( 'manage_woocommerce' ),
 		)
@@ -226,20 +233,20 @@ function get_store_summary(): array {
 ```
 
 Notes:
-- Use the **`Requires Plugins: woocommerce`** header to declare the WooCommerce dependency (the modern,
-  core-supported dependency mechanism).
+- Use the core-supported **`Requires Plugins: woocommerce`** header to declare the WooCommerce
+  dependency.
 - Inside `execute_callback`, follow the same rules as everywhere else in this toolkit: WooCommerce CRUD
   (`wc_get_orders`, `$order->get_meta()`), never `get_post_meta()` on orders; validate inputs; return
   values that match `output_schema`; escape only when a value is later rendered into a specific context.
 
 ---
 
-## Security & Permissions
+## Security and permissions
 
 An ability that an AI agent can invoke is a **privileged surface**, governed by the same rules as a
 REST endpoint — not a relaxed one:
 
-- **Every executable ability MUST have a real `permission_callback`.** Never register an ability that
+- **Give every executable ability a real `permission_callback`.** Never register an ability that
   reads or mutates store/customer/payment data with an open or trivially-true permission check. MCP
   discovery does **not** bypass WordPress permissions — the callback runs on every invocation.
 - **Default to read-only.** Expose read operations (query orders, read settings, inspect a gateway's
@@ -260,7 +267,7 @@ paths.
 
 ---
 
-## Connecting an MCP Client
+## Connecting an MCP client
 
 For local development you can drive the default server over STDIO via WP-CLI, and point an MCP client
 (Claude Desktop, Claude Code, VS Code, Cursor, …) at it:

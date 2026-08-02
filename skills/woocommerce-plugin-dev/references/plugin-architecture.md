@@ -1,4 +1,4 @@
-# WooCommerce Plugin Architecture
+# WooCommerce plugin architecture
 
 Use the target repository's bootstrap, lifecycle, dependency wiring, and source layout. Add structure
 only for behavior being built; this reference defines Woo-specific boundaries rather than a canonical
@@ -9,7 +9,7 @@ tree.
 - WooCommerce extension best practices: https://developer.woocommerce.com/docs/extensions/best-practices-extensions/
 - HPOS recipe book: https://developer.woocommerce.com/docs/features/orders/high-performance-order-storage/recipe-book/
 
-## Bootstrap and Dependencies
+## Bootstrap and dependencies
 
 Keep the main plugin file small: plugin metadata, direct-access guard, required dependency checks,
 feature declarations that have evidence, and delegation to the project's existing bootstrap. Match
@@ -29,7 +29,7 @@ Keep activation, routine loading, deactivation, upgrade, and uninstall distinct:
 - Flush rewrite rules only when the plugin owns rewrite changes.
 - Dependency failures should fail clearly without loading code that can fatal.
 
-## WooCommerce Compatibility
+## WooCommerce compatibility
 
 ### HPOS
 
@@ -47,18 +47,18 @@ behavior. If the plugin touches cart or checkout, implement and test each claime
 public extension API, then declare `cart_checkout_blocks` compatibility. Otherwise do not add the
 declaration merely as scaffold.
 
-### Other Features
+### Other features
 
 Treat every WooCommerce feature declaration the same way: identify affected behavior, use its public
 API, test the installed target, and declare only what the evidence supports.
 
-## Storage and Background Work
+## Storage and background work
 
 Use core/Woo data APIs for shared entities. Add a custom table only for a demonstrated query,
 consistency, or scale need. Version schema changes and make retry safe. Use Action Scheduler for
 bounded resumable work when a request cannot finish safely in one execution.
 
-## Uninstall Handler
+## Uninstall handler
 
 Keep retained plugin data by default when the plugin is uninstalled. Destructive cleanup requires an
 explicit opt-in that identifies exactly which plugin-owned data may be removed.

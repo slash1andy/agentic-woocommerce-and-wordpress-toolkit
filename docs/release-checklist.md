@@ -1,4 +1,4 @@
-# Local Release Checklist
+# Local release checklist
 
 Run this checklist from the reviewed candidate tree. It is local-only and does not depend on hosted workflows.
 
@@ -13,7 +13,9 @@ python3 -B scripts/validate.py --check-urls
 python3 -B -m unittest discover -s tests -p 'test_*.py'
 claude plugin validate .claude-plugin/plugin.json --strict
 claude plugin validate .claude-plugin/marketplace.json --strict
-git diff --check
+reviewed_base="$(git rev-parse "${REVIEWED_BASE:?Set REVIEWED_BASE to the approved base commit}^{commit}")"
+candidate="$(git rev-parse 'HEAD^{commit}')"
+git diff --check "$reviewed_base" "$candidate"
 ```
 
 - [ ] Prove a copied-cache installation from the complete reviewed artifact, not a symlink or live checkout. Confirm the installed cache contains both manifests, all three skills, every skill/reference route, the agent, and `scripts/validate.py`, with no `.git` directory.

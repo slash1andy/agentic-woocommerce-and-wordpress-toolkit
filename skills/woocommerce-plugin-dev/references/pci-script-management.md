@@ -1,10 +1,8 @@
-# PCI DSS Payment-Page Script Management Reference
+# PCI DSS payment page script management reference
 
-This reference covers the **PCI DSS v4.0.1 e-commerce script-management requirements** that became
-mandatory on **31 March 2025** — the single biggest e-commerce change in recent PCI DSS revisions —
-and what they mean for a WooCommerce payment plugin. It complements the general
-`references/security.md`; that file covers sanitization, escaping, nonces, capabilities, and secret
-handling, while this one covers the payment-page integrity requirements specifically.
+Use this reference for the **PCI DSS v4.0.1 ecommerce script management requirements** that became
+mandatory on **31 March 2025**. It complements `references/security.md` by covering payment page
+script authorization, integrity, inventory, and tamper detection.
 
 > **Not legal/compliance advice.** PCI scope depends on your exact integration model and your
 > acquirer's requirements. Confirm your obligations with a Qualified Security Assessor (QSA) and your
@@ -30,8 +28,8 @@ a checkout page silently exfiltrates card data.
 
 ## What it means for a WooCommerce payment plugin
 
-How much of this lands on the *merchant* vs. the *plugin* depends on the integration model — but the
-plugin's design heavily influences which model is even available:
+Choose the integration model first. It determines where card data enters and how much payment page
+script management falls on the merchant:
 
 | Integration model | Card data touches the merchant page? | Typical SAQ | Script-management exposure |
 |-------------------|--------------------------------------|-------------|----------------------------|
@@ -39,32 +37,28 @@ plugin's design heavily influences which model is even available:
 | **iframe to the provider (PCI-compliant)** | No (entered inside the provider's iframe) | SAQ A | Low — keep the surrounding page clean |
 | **Direct post / fields rendered by the plugin** | Yes | SAQ A-EP / D | High — 6.4.3 / 11.6.1 squarely apply |
 
-**Design implication:** prefer an integration that keeps the PAN out of the merchant's DOM (a
-provider-hosted field/iframe or tokenization in the browser via the provider's SDK). This is both the
-more secure design and the one that minimizes the merchant's script-management burden. A gateway that
-renders raw card fields on the checkout page pushes its merchants into the strictest scope.
+Prefer provider-hosted fields, an iframe, or browser tokenization that keeps the PAN out of the
+merchant DOM. A gateway that renders raw card fields on the checkout page creates the broadest scope.
 
-> Note on SAQ A: recent SAQ A revisions changed how 6.4.3 / 11.6.1 apply to fully-outsourced
-> (iframe/redirect) merchants and added eligibility attestations about not being susceptible to
-> script-based attacks. Always work from the **current** SAQ A and confirm with your QSA/acquirer —
-> do not assume an older SAQ's scope.
+> Use the current SAQ A and confirm scope with the merchant's QSA or acquirer. Do not rely on an older
+> SAQ A because the eligibility criteria and application of requirements 6.4.3 and 11.6.1 changed.
 
 ---
 
 ## Practical guidance for the plugin
 
-A WooCommerce payment plugin should make its merchants' compliance *easier*, not harder:
+Reduce the merchant's compliance burden:
 
 - **Keep the PAN off the merchant page.** Use the provider's hosted fields / iframe / browser SDK so
   card data is entered in the provider's context, not your plugin's DOM.
-- **Load only what's needed on checkout, from trusted origins.** Don't pull analytics, A/B, chat, or
-  other third-party scripts onto the payment page. Enqueue your own checkout scripts through the
+- **Load only what checkout needs from trusted origins.** Do not add analytics, A/B testing, chat, or
+  unrelated third-party scripts to the payment page. Enqueue checkout scripts through the
   WordPress enqueue system with a pinned, versioned source.
-- **Support script integrity.** Where you load a script on the payment page, make it integrity-checkable
-  (e.g. Subresource Integrity / a Content Security Policy the merchant can adopt) and document exactly
-  which scripts your plugin adds and why — that inventory + justification is the merchant's 6.4.3
+- **Support script integrity.** Make payment page scripts integrity-checkable where possible, such as
+  through Subresource Integrity or a Content Security Policy the merchant can adopt. Document exactly
+  which scripts the plugin adds and why; that inventory and justification is the merchant's 6.4.3
   evidence for your part of the page.
-- **Document your checkout script footprint** in your plugin docs: the list of scripts you enqueue on
+- **Document the checkout script footprint:** list the scripts the plugin enqueues on
   cart/checkout, their origins, and their purpose, so a merchant can fold it into their 6.4.3 inventory
   and their 11.6.1 monitoring baseline.
 - **Never log or transmit card data**, and never store PAN/CVV — consistent with the financial-data

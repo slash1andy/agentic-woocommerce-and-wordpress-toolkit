@@ -36,7 +36,7 @@
     {
       "id": 4,
       "prompt": "Add a new product-card badge to a WooCommerce plugin. It changes no persisted data, compatibility contract, dependency, payment flow, hook signature, or recovery behavior.",
-      "expected_output": "Does NOT invoke this skill for the described near-neighbor implementation request. Uses the normal WooCommerce development path and reserves upgrade-safety review for an actual existing-installation contract change.",
+      "expected_output": "Does not invoke this skill for the described near-neighbor implementation request. Uses the normal WooCommerce development path and reserves upgrade-safety review for an actual existing-installation contract change.",
       "files": [],
       "expectations": [
         "Recognizes that the request lacks an upgrade-risk surface",

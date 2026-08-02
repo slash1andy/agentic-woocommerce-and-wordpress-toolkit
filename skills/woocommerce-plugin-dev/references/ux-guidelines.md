@@ -1,4 +1,4 @@
-# WooCommerce UX Guidelines
+# WooCommerce UX guidelines
 
 Match the installed WooCommerce experience and the repository's existing UI before adding a new
 surface. Use public WordPress/WooCommerce APIs and native components wherever they cover the behavior.
@@ -11,7 +11,7 @@ surface. Use public WordPress/WooCommerce APIs and native components wherever th
 - Onboarding: https://developer.woocommerce.com/docs/extensions/ux-guidelines-extensions/onboarding/
 - WordPress Accessibility Coding Standards: https://make.wordpress.org/accessibility/handbook/
 
-## Placement and Settings
+## Placement and settings
 
 - Put order, product, shipping, payment, analytics, and settings behavior in the Woo surface merchants
   already use. Add a top-level menu only when the product is genuinely independent.
@@ -35,7 +35,7 @@ plugin as a presumed stable contract.
 Never block normal admin access, hide destructive defaults, collect unrelated data, or require account
 connection before explaining why it is needed.
 
-## Copy and Feedback
+## Copy and feedback
 
 - Use concise sentence-case merchant language and WooCommerce terminology.
 - State what happened, the affected object, and the safe next action. Do not expose stack traces,
@@ -43,7 +43,7 @@ connection before explaining why it is needed.
 - Preserve entered non-secret values after validation errors. Never redisplay stored secrets.
 - Show progress for genuinely long work and make retry/interruption states truthful.
 
-## Accessibility and Responsive Behavior
+## Accessibility and responsive behavior
 
 Meet WCAG 2.2 AA for every new or changed surface: semantic structure, programmatic labels and names,
 keyboard operation, visible focus, appropriate contrast, non-color status cues, announced errors,
@@ -54,7 +54,7 @@ Use responsive native layouts, not fixed desktop widths. Verify the critical flo
 narrow viewport; test assistive-technology behavior when custom controls or dynamic updates make it
 necessary.
 
-## Completion Evidence
+## Completion evidence
 
 Exercise the smallest merchant/shopper journey affected, including validation and failure feedback.
 Confirm placement, permissions, persistence, responsive behavior, and WCAG 2.2 AA basics with the

@@ -4,7 +4,7 @@
     {
       "id": 1,
       "prompt": "Run the WooCommerce finalization review on this release candidate. Trace the changed checkout, payment callback, and order-status paths and report release blockers.",
-      "expected_output": "Performs a read-only, evidence-based code-health and Woo traceability audit, classifies each changed path, and returns findings in chat. Does NOT edit files, install dependencies, call providers, or apply fixes.",
+      "expected_output": "Performs a read-only, evidence-based code-health and Woo traceability audit, classifies each changed path, and returns findings in chat. Does not edit files, install dependencies, call providers, or apply fixes.",
       "files": [],
       "expectations": [
         "Inspects the active diff and configured repository evidence before making claims",
@@ -15,7 +15,7 @@
     {
       "id": 2,
       "prompt": "Give this plugin a generic correctness review for bugs and security vulnerabilities, but do not run a release finalization audit.",
-      "expected_output": "Does NOT invoke this skill. Routes generic correctness to /code-review and security to the appropriate dedicated review instead of expanding finalization scope.",
+      "expected_output": "Does not invoke this skill. Routes generic correctness to /code-review and security to the appropriate dedicated review instead of expanding finalization scope.",
       "files": [],
       "expectations": [
         "Directs generic correctness work to /code-review",
@@ -25,7 +25,7 @@
     {
       "id": 3,
       "prompt": "Before release, audit the changed Blocks checkout and Store API request path through HPOS order persistence. Show verified and unverified links; do not fix anything.",
-      "expected_output": "Uses the finalization skill for a read-only traceability audit of only the claimed Blocks, Store API, and HPOS surfaces. Does NOT edit code and reports concrete evidence, failure impact, and follow-up verification.",
+      "expected_output": "Uses the finalization skill for a read-only traceability audit of only the claimed Blocks, Store API, and HPOS surfaces. Does not edit code and reports concrete evidence, failure impact, and follow-up verification.",
       "files": [],
       "expectations": [
         "Separates verified, broken, suspicious, and unverified paths using file and line evidence",

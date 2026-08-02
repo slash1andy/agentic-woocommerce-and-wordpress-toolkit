@@ -1,4 +1,4 @@
-# Marketplace Submission & Distribution
+# Marketplace submission and distribution
 
 Use this reference when preparing distribution, not while choosing ordinary implementation structure.
 Confirm program details against maintained official sources at submission time.
@@ -27,7 +27,7 @@ and truthful compatibility metadata.
 Preparation and review are read-only. Obtain explicit approval before you authenticate, upload, submit,
 or publish. Never infer that a passing local check authorizes a marketplace action.
 
-## WordPress.org and Serviceware
+## WordPress.org and serviceware
 
 For WordPress.org distribution, shipped code cannot be payment-locked: local plugin functionality may
 not expire, become arbitrary trialware, or require payment merely to unlock code already shipped.
@@ -40,13 +40,13 @@ License-only validation or routing arbitrary local functionality through a nomin
 serviceware and is not allowed. Off-directory premium add-ons may provide separate code under the
 applicable directory rules; do not disguise a local feature lock as a hosted service.
 
-## Licensing and Human Accountability
+## Licensing and human accountability
 
 WordPress.org's detailed plugin guidelines do not require an AI-assistance disclosure. Regardless of
 tooling, verify code and asset provenance, GPL compatibility, third-party notices, and generated
 artifacts. A human remains accountable for correctness, security, accessibility, and licensing.
 
-## Pre-Submission Check
+## Pre-submission check
 
 - [ ] Applicable project tests and current QIT checks pass using official instructions.
 - [ ] Declared HPOS, Blocks, and other Woo feature compatibility has implementation evidence.

@@ -1,16 +1,14 @@
-# Agentic Commerce Readiness Reference
+# Agentic commerce readiness reference
 
-This reference covers what a WooCommerce commerce or payment extension should consider so that it
-works well when **AI agents shop, operate, or buy** on a store. It is forward-looking and the
-ecosystem is moving quickly, so treat specific endpoint names, feature flags, and protocol versions
-as *verify-at-build-time* and confirm them against the official WooCommerce changelog and the
-protocol specs before relying on them.
+Use this reference when a WooCommerce commerce or payment extension supports agent-operated
+discovery, store actions, or checkout. Confirm endpoint names, feature flags, and protocol versions
+against current WooCommerce release notes and protocol specifications before implementation.
 
 **Official sources:**
 - WooCommerce AI & agentic commerce overview: https://developer.woocommerce.com/docs/getting-started/ai/
 - WooCommerce MCP integration: https://developer.woocommerce.com/docs/features/mcp/
 - WordPress Abilities API + MCP (see the companion reference): `references/abilities-and-mcp.md`
-- Model Context Protocol: https://modelcontextprotocol.io/
+- Model Context Protocol: https://modelcontextprotocol.io/specification/2026-07-28
 - Agentic Commerce Protocol (ACP): https://www.agenticcommerce.dev/
 - Store API (the headless/programmatic surface): https://developer.woocommerce.com/docs/apis/store-api/
 
@@ -32,7 +30,7 @@ layer driven by external protocols and platform partners.
 
 ---
 
-## Track 1 — Agent operation via Abilities + MCP
+## Track 1 — Agent operation via Abilities and MCP
 
 This is fully covered in `references/abilities-and-mcp.md`. In short: register your extension's safe
 operations as **Abilities** (`wp_register_ability` on `wp_abilities_api_init`), gate each with a real
@@ -70,10 +68,9 @@ WooCommerce release notes.
 
 ---
 
-## Agentic-readiness checklist for a commerce / payment extension
+## Agentic readiness checklist for a commerce or payment extension
 
-The toolkit already teaches the primitives below — this checklist assembles them into the
-agent-facing pattern. Adopt the items that fit the plugin's role:
+Apply only the entries that fit the plugin's role:
 
 - [ ] **Discoverability.** Expose a machine-readable, structured view of the relevant catalog/data —
       via the Store API (`wc/store/v1`), the REST API, and/or registered read-only Abilities (Track 1).
@@ -84,14 +81,15 @@ agent-facing pattern. Adopt the items that fit the plugin's role:
 - [ ] **Delegated payment.** For payment gateways, understand how your gateway participates in delegated
       / shared-payment-token flows (e.g. via the partner suite for ACP) and that the merchant stays
       merchant of record. Never expose raw PAN/credentials to an agent.
-- [ ] **Real-time, machine-readable inventory & availability** so an agent doesn't sell what isn't there.
+- [ ] **Inventory and availability.** Expose current, machine-readable values so an agent cannot offer
+      unavailable products.
 - [ ] **Safe operations as Abilities (Track 1)**, read-only first, each behind a `permission_callback`.
 - [ ] **Feature declaration.** If/when WooCommerce exposes a gateway-level agentic feature flag, declare
       it via `FeaturesUtil::declare_compatibility()` only after verifying the flag name in the changelog
       and testing the integration — the same discipline used for `custom_order_tables` and
       `cart_checkout_blocks`.
 
-## How this maps to what the toolkit already covers
+## Related toolkit coverage
 
 | Agentic need | Existing toolkit material |
 |--------------|---------------------------|
@@ -101,6 +99,5 @@ agent-facing pattern. Adopt the items that fit the plugin's role:
 | Feature compatibility flags | `references/plugin-architecture.md` — `FeaturesUtil::declare_compatibility()` |
 | Privileged-surface security | `references/security.md` — capability checks, permission callbacks, secret handling |
 
-The gap agentic readiness fills is not new plumbing — it is **connecting the plumbing the plugin
-already has to agent-facing discovery, checkout, and operation**, and doing so behind the same
-permission and secret-handling rules the rest of this toolkit enforces.
+Agentic readiness usually reuses existing plugin surfaces. Connect those surfaces to agent-facing
+discovery, checkout, and operations behind the same permission and secret-handling rules.

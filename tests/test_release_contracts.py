@@ -1,4 +1,6 @@
 import json
+import re
+import subprocess
 import unittest
 from pathlib import Path
 
@@ -39,17 +41,24 @@ class ReleaseContractsTest(unittest.TestCase):
                     self.assertGreaterEqual(len(scenario["expectations"]), 2)
                 corpora[skill] = json.dumps(data)
 
-        self.assertIn("Does NOT invoke this skill", corpora["woocommerce-plugin-dev"])
+        self.assertIn("Does not invoke this skill", corpora["woocommerce-plugin-dev"])
         for marker in ("REST", "Store API", "MCP"):
             self.assertIn(marker, corpora["woocommerce-plugin-dev"])
-        for marker in ("read-only", "Does NOT edit", "/code-review"):
+        for stale in (
+            "PROJECT_BRIEF.md",
+            "Uses PSR-4 autoloading via Composer",
+            "Creates PHPUnit and Playwright test configuration files",
+        ):
+            self.assertNotIn(stale, corpora["woocommerce-plugin-dev"])
+        self.assertIn("repository", corpora["woocommerce-plugin-dev"].lower())
+        for marker in ("read-only", "Does not edit", "/code-review"):
             self.assertIn(marker, corpora["woocommerce-finalize"])
         for marker in (
             "stable monotonic cursor",
             "replay",
             "installed, licensed official source",
             "blocked/unknown",
-            "Does NOT invoke this skill",
+            "Does not invoke this skill",
         ):
             self.assertIn(marker, corpora["woocommerce-upgrade-safety"])
 
@@ -86,9 +95,23 @@ class ReleaseContractsTest(unittest.TestCase):
             "python3 -B -m unittest discover -s tests -p 'test_*.py'",
             "claude plugin validate .claude-plugin/plugin.json --strict",
             "claude plugin validate .claude-plugin/marketplace.json --strict",
-            "git diff --check",
+            'git diff --check "$reviewed_base" "$candidate"',
         ):
             self.assertIn(command, checklist)
+        release_commands = re.search(
+            r"```bash\n(.*?)\n```",
+            checklist,
+            re.DOTALL,
+        ).group(1)
+        syntax = subprocess.run(
+            ["/bin/bash", "-n"],
+            input=release_commands,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(0, syntax.returncode, syntax.stderr)
+        self.assertIn("REVIEWED_BASE", release_commands)
         for marker in (
             "copied-cache installation",
             "explicit approval",
@@ -100,6 +123,42 @@ class ReleaseContractsTest(unittest.TestCase):
         ):
             self.assertIn(marker, checklist)
         self.assertFalse((ROOT / ".github/workflows").exists())
+
+    def test_repository_brand_and_urls_are_current(self):
+        expected_name = "Agentic WooCommerce and WordPress toolkit"
+        expected_slug = "slash1andy/agentic-woocommerce-and-wordpress-toolkit"
+        stale_slug = "slash1andy/" + "claude-woocommerce-toolkit"
+        expected_description = (
+            "Claude Code skills and a read-only UX agent for WordPress and WooCommerce plugin work."
+        )
+        readme = read(ROOT / "README.md")
+
+        self.assertTrue(readme.startswith(f"# {expected_name}\n"))
+        self.assertIn(
+            "preserved `claude-woocommerce-toolkit` plugin namespace",
+            " ".join(readme.split()),
+        )
+        plugin = json.loads(read(ROOT / ".claude-plugin/plugin.json"))
+        self.assertEqual(f"https://github.com/{expected_slug}", plugin["repository"])
+        marketplace = json.loads(read(ROOT / ".claude-plugin/marketplace.json"))
+        self.assertEqual(expected_description, plugin["description"])
+        self.assertEqual(expected_description, marketplace["description"])
+        contributing = read(ROOT / "CONTRIBUTING.md")
+        self.assertIn("## Voice and style", contributing)
+        self.assertIn("Use sentence case for headings.", contributing)
+        for path in ROOT.rglob("*"):
+            if path.is_file() and ".git" not in path.parts and path.suffix in {".md", ".py", ".json"}:
+                self.assertNotIn(stale_slug, read(path), str(path.relative_to(ROOT)))
+
+    def test_ability_example_has_a_discoverable_output_contract(self):
+        reference = read(
+            ROOT / "skills/woocommerce-plugin-dev/references/abilities-and-mcp.md"
+        )
+
+        self.assertIn("developer preview", reference.lower())
+        self.assertNotIn("order counts", reference)
+        for field in ("store_name", "currency", "woocommerce_version"):
+            self.assertGreaterEqual(reference.count(field), 2)
 
     def test_license_identifier_is_consistent(self):
         plugin = json.loads(read(ROOT / ".claude-plugin/plugin.json"))

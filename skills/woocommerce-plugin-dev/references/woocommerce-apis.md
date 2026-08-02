@@ -1,8 +1,7 @@
-# WooCommerce APIs Reference
+# WooCommerce APIs reference
 
-This reference covers the WooCommerce APIs and data stores that plugins should use instead of
-direct database access. These patterns ensure HPOS compatibility and forward-compatibility
-with future WooCommerce releases.
+Use WooCommerce APIs and data stores instead of direct database access. These patterns preserve HPOS
+compatibility and follow supported extension contracts.
 
 **Official sources:**
 - WooCommerce REST API: https://woocommerce.github.io/woocommerce-rest-api-docs/
@@ -12,24 +11,24 @@ with future WooCommerce releases.
 
 ---
 
-## Table of Contents
-1. [Order CRUD (HPOS-Compatible)](#order-crud-hpos-compatible)
+## Table of contents
+1. [Order CRUD (HPOS-compatible)](#order-crud-hpos-compatible)
 2. [Product CRUD](#product-crud)
-3. [Customer Data](#customer-data)
-4. [WooCommerce Hooks](#woocommerce-hooks)
-5. [REST API Extensions](#rest-api-extensions)
-6. [WooCommerce REST API v3 Authentication](#woocommerce-rest-api-v3-authentication)
-7. [Store API & Block Checkout Extensibility](#store-api--block-checkout-extensibility)
+3. [Customer data](#customer-data)
+4. [WooCommerce hooks](#woocommerce-hooks)
+5. [REST API extensions](#rest-api-extensions)
+6. [WooCommerce REST API v3 authentication](#woocommerce-rest-api-v3-authentication)
+7. [Store API and Block checkout extensibility](#store-api-and-block-checkout-extensibility)
 8. [Action Scheduler](#action-scheduler)
 9. [WooCommerce Settings API](#woocommerce-settings-api)
 
 ---
 
-## Order CRUD (HPOS-Compatible)
+## Order CRUD (HPOS-compatible)
 
 Always use the WooCommerce CRUD API for orders. Never access `wp_posts` or `wp_postmeta` directly.
 
-### Reading Orders
+### Reading orders
 
 ```php
 // Get an order by ID.
@@ -66,7 +65,7 @@ $orders = wc_get_orders( array(
 ) );
 ```
 
-### Writing Order Data
+### Writing order data
 
 ```php
 $order = wc_get_order( $order_id );
@@ -82,7 +81,7 @@ $order->update_meta_data( '_plugin_slug_processed_at', current_time( 'mysql' ) )
 $order->save();
 ```
 
-### Order Notes
+### Order notes
 
 ```php
 // Add a note visible to the admin.
@@ -97,9 +96,10 @@ $order->add_order_note(
 );
 ```
 
-### HPOS-Aware Queries
+### HPOS-aware queries
 
-If you absolutely need a custom query (rare), check whether HPOS is active:
+Prefer `wc_get_orders()`. If repository evidence requires a custom query, branch on the active order
+storage:
 
 ```php
 use Automattic\WooCommerce\Utilities\OrderUtil;
@@ -122,8 +122,6 @@ if ( OrderUtil::custom_orders_table_usage_is_enabled() ) {
 	) );
 }
 ```
-
-But prefer `wc_get_orders()` which handles this automatically.
 
 ---
 
@@ -156,7 +154,7 @@ $products = wc_get_products( array(
 
 ---
 
-## Customer Data
+## Customer data
 
 ```php
 // Get customer.
@@ -172,9 +170,9 @@ $customer->save();
 
 ---
 
-## WooCommerce Hooks
+## WooCommerce hooks
 
-### Essential Action Hooks
+### Essential action hooks
 
 | Hook | When It Fires | Common Use |
 |------|--------------|------------|
@@ -188,7 +186,7 @@ $customer->save();
 | `woocommerce_after_checkout_validation` | After checkout validation | Custom validation |
 | `woocommerce_thankyou` | Thank you page | Display custom order info |
 
-### Essential Filter Hooks
+### Essential filter hooks
 
 | Hook | What It Filters | Common Use |
 |------|----------------|------------|
@@ -202,9 +200,9 @@ $customer->save();
 
 ---
 
-## REST API Extensions
+## REST API extensions
 
-### Registering Custom Endpoints
+### Registering custom endpoints
 
 ```php
 namespace PluginSlug\API;
@@ -252,7 +250,7 @@ class Orders_Controller extends \WP_REST_Controller {
 
 ---
 
-## WooCommerce REST API v3 Authentication
+## WooCommerce REST API v3 authentication
 
 The WooCommerce REST API v3 (`/wp-json/wc/v3/`) is the standard API for external system
 integration. Understanding its authentication model is essential when building endpoints that
@@ -260,7 +258,7 @@ external systems consume.
 
 **API base URL:** `https://example.com/wp-json/wc/v3/`
 
-### Authentication Methods
+### Authentication methods
 
 **1. HTTP Basic Auth (HTTPS only — recommended for server-to-server):**
 
@@ -281,7 +279,7 @@ Uses HMAC-SHA1 or HMAC-SHA256 signature method. Required parameters:
 `oauth_consumer_key`, `oauth_timestamp`, `oauth_nonce`, `oauth_signature`,
 `oauth_signature_method`, `oauth_version`.
 
-### Consumer Key Permissions
+### Consumer key permissions
 
 When generating API keys, WooCommerce offers three permission levels:
 - **Read** — GET access only
@@ -290,7 +288,7 @@ When generating API keys, WooCommerce offers three permission levels:
 
 Always generate keys with the minimum permission level your integration needs.
 
-### Extending WC REST API Responses
+### Extending WC REST API responses
 
 When adding custom data to existing WC REST API endpoints, use the
 `woocommerce_rest_prepare_{object}_object` filter:
@@ -310,13 +308,12 @@ escape only when a consumer later renders a value into an HTML, attribute, URL, 
 
 ---
 
-## Store API & Block Checkout Extensibility
+## Store API and Block checkout extensibility
 
-The Store API is WooCommerce's modern REST API specifically for the block-based Cart and
-Checkout experience. If your plugin needs to modify the checkout flow, you MUST use the
-Store API instead of relying on classic checkout hooks.
+The Store API is WooCommerce's REST surface for block-based Cart and Checkout. Use it for block
+checkout changes instead of relying on classic checkout hooks.
 
-**Key difference:** The Store API does NOT fire classic checkout PHP hooks. Choose one state model for
+The Store API does not fire classic checkout PHP hooks. Choose one state model for
 Cart and Checkout requests: preserve the cookie-based customer session and send a current `Nonce` on
 write requests, or send the Store API's `Cart-Token` instead of cookies; Cart-Token requests do not
 require a Nonce. Follow the current Store API authentication documentation for the chosen client flow.
@@ -326,7 +323,7 @@ the only version; a breaking change would force a new namespace version. It is a
 surface for headless / front-end and programmatic clients — including the agentic-checkout work in
 `references/agentic-commerce.md`.
 
-### Adding Checkout Fields (Additional Checkout Fields API)
+### Adding checkout fields (Additional Checkout Fields API)
 
 To **add a field** to the checkout, use the Additional Checkout Fields API
 (`woocommerce_register_additional_checkout_field()`, WooCommerce 8.9+) — **not** the classic
@@ -394,7 +391,7 @@ add_action( 'woocommerce_blocks_loaded', function () {
 } );
 ```
 
-### Slot and Fill Pattern for Block Checkout UI
+### Slot and Fill pattern for Block checkout UI
 
 For adding custom UI elements to the block-based checkout, use the Slot and Fill pattern
 with `@woocommerce/blocks-checkout`:
@@ -420,7 +417,7 @@ registerPlugin( 'plugin-slug-blocks', {
 } );
 ```
 
-### Inner Blocks Pattern
+### Inner Blocks pattern
 
 For more complex checkout integrations, register custom inner blocks:
 
@@ -437,7 +434,7 @@ add_filter( 'woocommerce_blocks_register_checkout_inner_block', function ( $bloc
 } );
 ```
 
-### When to Use Which API
+### When to use each API
 
 | Scenario | Use |
 |----------|-----|

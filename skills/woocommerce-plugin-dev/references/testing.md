@@ -1,4 +1,4 @@
-# Testing WooCommerce Plugins
+# Testing WooCommerce plugins
 
 Use the repository's documented project commands and existing fixtures first. Select tests by failure
 cost and boundary risk, not a universal pyramid, coverage percentage, tool version, or CI matrix.
@@ -9,7 +9,7 @@ cost and boundary risk, not a universal pyramid, coverage percentage, tool versi
 - WooCommerce QIT documentation: https://qit.woo.com/docs/
 - QIT test packages: https://qit.woo.com/docs/test-packages/
 
-## Risk-Based Selection
+## Risk-based selection
 
 | Risk | Smallest effective check |
 |---|---|
@@ -27,7 +27,7 @@ cost and boundary risk, not a universal pyramid, coverage percentage, tool versi
 Security controls need negative tests at the boundary: unauthenticated, unauthorized, missing/invalid
 CSRF proof where required, malformed input, over-broad output, injection, and secret/log leakage.
 
-## Existing Projects
+## Existing projects
 
 1. Run the documented project commands; do not replace them with copied scaffolds.
 2. Add the focused failing test in the existing test layer nearest the behavior.
@@ -37,7 +37,7 @@ CSRF proof where required, malformed input, over-broad output, injection, and se
 Reuse present Composer/npm scripts, PHPUnit bootstrap, static analysis, browser harness, `wp-env`,
 containers, and CI. Do not add parallel infrastructure because this reference names a possible tool.
 
-## New Projects
+## New projects
 
 Create one PHPUnit baseline only when PHP behavior needs an automated check and no project test setup
 exists. Add WordPress/Woo integration support only for real hook/storage behavior. Add Playwright,
@@ -46,7 +46,7 @@ exists. Add WordPress/Woo integration support only for real hook/storage behavio
 E2E is only for critical browser journeys. Keep calculations, schemas, authorization decisions, and
 migration logic at faster lower layers.
 
-## Woo-Specific Invariants
+## Woo-specific invariants
 
 When relevant, prove:
 
@@ -64,7 +64,7 @@ Use the maintained official QIT plugin and documentation for current commands, m
 packages. QIT complements the project's focused checks; it does not replace them or justify copying a
 command catalog into the repository.
 
-## Completion Evidence
+## Completion evidence
 
 Report the RED failure, focused GREEN result, applicable documented project commands, and any skipped
 surface. Passing unrelated tests or a coverage number does not prove the changed Woo boundary.

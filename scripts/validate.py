@@ -5,7 +5,7 @@ import argparse
 import json
 import re
 import sys
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from urllib.error import URLError
 from urllib.parse import parse_qsl, urlsplit
 from urllib.request import Request, urlopen
@@ -15,17 +15,17 @@ ROOT = Path(__file__).resolve().parents[1]
 PLUGIN = {
     "name": "claude-woocommerce-toolkit",
     "version": "1.0.0",
-    "description": "Claude Code skills and agents for WooCommerce plugin development and review.",
+    "description": "Claude Code skills and a read-only UX agent for WordPress and WooCommerce plugin work.",
     "author": {
         "name": "Andrew Wikel",
         "url": "https://github.com/slash1andy",
     },
-    "repository": "https://github.com/slash1andy/claude-woocommerce-toolkit",
+    "repository": "https://github.com/slash1andy/agentic-woocommerce-and-wordpress-toolkit",
     "license": "GPL-2.0-or-later",
 }
 MARKETPLACE = {
     "name": "claude-woocommerce-toolkit",
-    "description": "Claude Code skills and agents for WooCommerce plugin development and review.",
+    "description": "Claude Code skills and a read-only UX agent for WordPress and WooCommerce plugin work.",
     "owner": {
         "name": "Andrew Wikel",
         "url": "https://github.com/slash1andy",
@@ -38,6 +38,41 @@ SKILLS = (
     "woocommerce-upgrade-safety",
 )
 AGENTS = ("woocommerce-ux-reviewer",)
+PACKAGE_FILES = {
+    Path(value)
+    for value in (
+        ".claude-plugin/marketplace.json",
+        ".claude-plugin/plugin.json",
+        "CONTRIBUTING.md",
+        "LICENSE",
+        "README.md",
+        "SECURITY.md",
+        "agents/woocommerce-ux-reviewer.md",
+        "docs/evaluation-status.md",
+        "docs/installation.md",
+        "docs/release-checklist.md",
+        "scripts/validate.py",
+        "skills/woocommerce-finalize/SKILL.md",
+        "skills/woocommerce-finalize/evals/evals.json",
+        "skills/woocommerce-plugin-dev/SKILL.md",
+        "skills/woocommerce-plugin-dev/evals/evals.json",
+        "skills/woocommerce-plugin-dev/references/abilities-and-mcp.md",
+        "skills/woocommerce-plugin-dev/references/agentic-commerce.md",
+        "skills/woocommerce-plugin-dev/references/coding-standards.md",
+        "skills/woocommerce-plugin-dev/references/marketplace-submission.md",
+        "skills/woocommerce-plugin-dev/references/pci-script-management.md",
+        "skills/woocommerce-plugin-dev/references/plugin-architecture.md",
+        "skills/woocommerce-plugin-dev/references/security.md",
+        "skills/woocommerce-plugin-dev/references/testing.md",
+        "skills/woocommerce-plugin-dev/references/ux-guidelines.md",
+        "skills/woocommerce-plugin-dev/references/woocommerce-apis.md",
+        "skills/woocommerce-upgrade-safety/SKILL.md",
+        "skills/woocommerce-upgrade-safety/evals/evals.json",
+        "tests/test_p0_contracts.py",
+        "tests/test_release_contracts.py",
+        "tests/test_validate.py",
+    )
+}
 DOCS = (
     Path("README.md"),
     Path("docs/installation.md"),
@@ -157,6 +192,24 @@ def validate_manifests(errors):
 
 
 def validate_components(errors):
+    entries = [
+        path
+        for path in ROOT.rglob("*")
+        if ".git" not in path.parts
+    ]
+    for path in entries:
+        if path.is_symlink():
+            errors.append(f"{path.relative_to(ROOT)}: package path must not be a symlink")
+    actual_files = {
+        path.relative_to(ROOT)
+        for path in entries
+        if path.is_file() and not path.is_symlink()
+    }
+    for relative in sorted(actual_files - PACKAGE_FILES):
+        errors.append(f"{relative}: unexpected package path")
+    for relative in sorted(PACKAGE_FILES - actual_files):
+        errors.append(f"{relative}: missing package file")
+
     required = [
         *(Path("skills") / name / "SKILL.md" for name in SKILLS),
         *(Path("agents") / f"{name}.md" for name in AGENTS),
@@ -176,17 +229,21 @@ def validate_components(errors):
             except ValueError:
                 errors.append(f"{relative}: required component escapes the plugin")
 
-    actual_skills = {
-        path.parent.name
-        for path in (ROOT / "skills").glob("*/SKILL.md")
+    skill_files = {
+        path.relative_to(ROOT)
+        for path in (ROOT / "skills").rglob("SKILL.md")
         if path.is_file()
     }
-    actual_agents = {
-        path.stem for path in (ROOT / "agents").glob("*.md") if path.is_file()
+    agent_files = {
+        path.relative_to(ROOT)
+        for path in (ROOT / "agents").rglob("*.md")
+        if path.is_file()
     }
-    if actual_skills != set(SKILLS):
+    expected_skill_files = {Path("skills") / name / "SKILL.md" for name in SKILLS}
+    expected_agent_files = {Path("agents") / f"{name}.md" for name in AGENTS}
+    if skill_files != expected_skill_files:
         errors.append(f"skills: inventory must be {', '.join(sorted(SKILLS))}")
-    if actual_agents != set(AGENTS):
+    if agent_files != expected_agent_files:
         errors.append(f"agents: inventory must be {', '.join(sorted(AGENTS))}")
 
     for name in SKILLS:
@@ -245,6 +302,7 @@ def validate_frontmatter(relative, expected_name, errors, require_explicit=False
         return
 
     fields = {}
+    plain_fields = set()
     key_pattern = re.compile(
         r'^(?:"([A-Za-z][A-Za-z0-9-]*)"|\'([A-Za-z][A-Za-z0-9-]*)\'|'
         r"([A-Za-z][A-Za-z0-9-]*))\s*:\s*(.*)$"
@@ -315,12 +373,16 @@ def validate_frontmatter(relative, expected_name, errors, require_explicit=False
                 errors.append(f"{relative}: malformed frontmatter value {key}")
                 index += 1
                 continue
+            plain_fields.add(key)
         fields[key] = value
         index += 1
 
     if fields.get("name") != expected_name:
         errors.append(f"{relative}: frontmatter name must match {expected_name}")
-    if require_explicit and fields.get("disable-model-invocation") != "true":
+    if require_explicit and (
+        fields.get("disable-model-invocation") != "true"
+        or "disable-model-invocation" not in plain_fields
+    ):
         errors.append(f"{relative}: disable-model-invocation must be true")
     if expected_name == "woocommerce-ux-reviewer":
         if set(fields) != {"name", "description", "tools", "model"}:
@@ -387,26 +449,32 @@ def validate_safety_guidance(errors):
         for unit in units:
             if relative.name == "security.md":
                 unsafe = (
-                    "cookie authenticated" in unit
-                    and "nonce" in unit
-                    and re.search(r"\b(?:do not require|does not require|not require|skip|without|optional|unnecessary)\b", unit)
+                    "rest" in unit
+                    and re.search(r"\b(?:cookie|browser|session)(?: authenticated)?\b", unit)
                     is not None
+                    and re.search(r"\b(?:mutation|mutations|write|writes|request|requests|operation|operations)\b", unit)
+                    is not None
+                    and "nonce" in unit
+                    and re.search(r"\b(?:bypass|do not require|does not require|not require|skip|omit|without|optional|unnecessary)\b", unit)
+                    is not None
+                    and re.search(r"\b(?:application passwords?|basic authentication|oauth)\b", unit)
+                    is None
                 )
             elif relative.name == "plugin-architecture.md":
                 unsafe = (
                     ("uninstall" in unit or "cleanup" in unit)
-                    and re.search(r"\b(?:delete|remove|purge|destructive|opt in)\b", unit)
+                    and re.search(r"\b(?:clear|delete|remove|erase|purge|destructive|opt in)\b", unit)
                     is not None
                     and re.search(r"\b(?:without|automatically|by default|unnecessary|not required|regardless)\b", unit)
                     is not None
                 )
             else:
                 actual_data = re.search(
-                    r"\b(?:live payment|production payment|real card|real customer|customer data|customer record)",
+                    r"\b(?:(?:live|production|real|actual) (?:customer )?(?:payments?|cards?|transactions?|charges?|data|records?)|customer (?:data|records?))\b",
                     unit,
                 )
                 preference = re.search(
-                    r"\b(?:prefer|preferred|best|ideal|test|testing|fixture|source|use)\b",
+                    r"\b(?:prefer|preferred|best|ideal|test|testing|fixture|source|use|verification|verify)\b",
                     unit,
                 )
                 prohibition = re.search(
@@ -416,6 +484,20 @@ def validate_safety_guidance(errors):
             if unsafe:
                 errors.append(f"{relative}: unsafe guidance")
                 break
+
+
+def is_safe_eval_path(item):
+    if "\\" in item or "\0" in item or re.match(r"^[A-Za-z]:", item):
+        return False
+    relative = PurePosixPath(item)
+    if relative.is_absolute() or not relative.parts or ".." in relative.parts:
+        return False
+    candidate = ROOT.joinpath(*relative.parts)
+    try:
+        candidate.resolve().relative_to(ROOT.resolve())
+    except (OSError, RuntimeError, ValueError):
+        return False
+    return not has_symlink_component(candidate)
 
 
 def validate_evals(errors):
@@ -457,6 +539,8 @@ def validate_evals(errors):
                 not isinstance(item, str) or not item.strip() for item in files
             ):
                 errors.append(f"{label} files must be a list of nonempty strings")
+            elif any(not is_safe_eval_path(item) for item in files):
+                errors.append(f"{label} files must stay within the repository")
             expectations = case["expectations"]
             if not isinstance(expectations, list) or len(expectations) < 2 or any(
                 not isinstance(item, str) or not item.strip() for item in expectations
@@ -503,10 +587,10 @@ def validate_docs(errors):
                 texts[relative] = text
     combined = "\n".join(texts.values())
     required = (
-        "claude plugin marketplace add https://github.com/slash1andy/claude-woocommerce-toolkit.git#v1.0.0 --scope project",
+        "claude plugin marketplace add https://github.com/slash1andy/agentic-woocommerce-and-wordpress-toolkit.git#v1.0.0 --scope project",
         "claude plugin install claude-woocommerce-toolkit@claude-woocommerce-toolkit --scope project",
         "/reload-plugins",
-        ".claude/skills/claude-woocommerce-toolkit",
+        'target="$skills_root/claude-woocommerce-toolkit"',
         'Path.home() / ".claude/agents"',
         'Path(".claude/agents")',
         'names = {"woocommerce-ux-reviewer"}',
@@ -531,7 +615,11 @@ def validate_docs(errors):
             errors.append(f"{relative}: generic reviews must use /code-review")
 
     unsafe = False
-    shell = "\n".join(re.findall(r"```bash\s*\n(.*?)\n```", combined, re.DOTALL))
+    shell = "\n".join(
+        re.findall(r"```(?:bash|sh|shell)\s*\n(.*?)\n```", combined, re.DOTALL | re.IGNORECASE)
+    )
+    shell = re.sub(r"\\[ \t]*\n[ \t]*", " ", shell)
+    shell = re.sub(r"\|[ \t]*\n[ \t]*", "| ", shell)
     for line in (line.strip() for line in shell.splitlines()):
         if re.match(
             r"(?i)^(?:git pull|ln\s+-(?:\S*s\S*)|rm\s+-rf\s+(?:--\s+)?[\"']?\.claude/skills(?:[\"'/\s]|$))",
@@ -544,6 +632,11 @@ def validate_docs(errors):
             unsafe = True
         if re.match(r"(?i)^cp\b", line) and re.search(r"(?:skills|agents)(?:/|\b)", line):
             unsafe = True
+        if re.search(
+            r"(?i)\b(?:curl|wget)\b.*\|\s*(?:(?:/usr/bin/env|env)\s+)?(?:/(?:usr/)?bin/)?(?:sh|bash)\b",
+            line,
+        ):
+            unsafe = True
     if re.search(
         r"(?i)(?:agent|skill).{0,40}(?:trigger(?:s|ed)?|invoked) automatically|automatically (?:trigger(?:s|ed)?|invoked)",
         combined,
@@ -553,13 +646,27 @@ def validate_docs(errors):
         errors.append("installation docs: unsafe installation guidance")
 
     self_link = "https://github.com/Automattic/claude-woocommerce-toolkit"
+    stale_public_text = (
+        "Claude WooCommerce Toolkit",
+        "Agentic WooCommerce and WordPress Toolkit",
+        "https://github.com/slash1andy/" "claude-woocommerce-toolkit",
+    )
     occurrences = []
-    for path in ROOT.rglob("*.md"):
-        if ".git" in path.parts or not path.is_file() or path.is_symlink():
+    for path in ROOT.rglob("*"):
+        if (
+            path.suffix not in {".md", ".json"}
+            or ".git" in path.parts
+            or not path.is_file()
+            or path.is_symlink()
+        ):
             continue
         text = read_text(path, errors)
         if text is None:
             continue
+        for stale in stale_public_text:
+            if stale in text:
+                errors.append(f"{path.relative_to(ROOT)}: stale public branding")
+                break
         for line_number, line in enumerate(text.splitlines(), 1):
             if self_link in line:
                 occurrences.append((path.relative_to(ROOT), line_number, line))
@@ -594,6 +701,7 @@ def official_urls(errors):
                 continue
             credential_keys = {
                 "api_key",
+                "client_secret",
                 "consumer_key",
                 "consumer_secret",
                 "password",

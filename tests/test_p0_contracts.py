@@ -226,7 +226,7 @@ class P0ContractsTest(unittest.TestCase):
 
     def test_uninstall_and_secret_guidance_are_safe(self):
         architecture = read(ARCHITECTURE)
-        uninstall = architecture.split("## Uninstall Handler", 1)[1].split("\n---", 1)[0]
+        uninstall = architecture.split("## Uninstall handler", 1)[1].split("\n---", 1)[0]
         security = read(SECURITY)
         abilities = read(ABILITIES)
         upgrade = read(UPGRADE)

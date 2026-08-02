@@ -1,12 +1,16 @@
 # Contributing
 
-Contributions are welcome. This toolkit aims to capture and share WordPress and WooCommerce development best practices for use with Claude Code.
+Contributions should keep the toolkit narrow, evidence-based, and useful across WordPress and
+WooCommerce repositories. Start from official platform contracts and the target repository rather
+than adding generic scaffolding.
 
-## What to Contribute
+## What to contribute
 
-### Reference Documents
+### Reference documents
 
-The `skills/woocommerce-plugin-dev/references/` directory contains standalone guides on specific topics. Good candidates for new reference docs:
+The `skills/woocommerce-plugin-dev/references/` directory contains focused guides. Add a reference
+when a recurring WooCommerce or WordPress boundary needs more detail than a core skill can carry.
+Useful subjects include:
 
 - Block development patterns (Gutenberg blocks for WooCommerce)
 - WooCommerce Subscriptions integration patterns
@@ -14,17 +18,17 @@ The `skills/woocommerce-plugin-dev/references/` directory contains standalone gu
 - Performance optimization techniques
 - Internationalization (i18n) deep dive
 
-### Reference Doc Standards
+### Reference standards
 
 Each reference document should:
 
 - Cover a single, well-scoped topic
-- Cite official sources (WordPress Plugin Handbook, WooCommerce developer docs, etc.)
+- Cite current official sources
 - Include working code examples that follow WordPress Coding Standards
 - Be self-contained (readable without the other reference docs)
-- Use the existing docs as a template for structure and tone
+- Match the repository's voice and structure
 
-### Manual Evaluation Scenarios
+### Manual evaluation scenarios
 
 Each `skills/*/evals/evals.json` file contains official-format manual evaluation scenarios, not benchmark results. Add scenarios that test:
 
@@ -32,15 +36,24 @@ Each `skills/*/evals/evals.json` file contains official-format manual evaluation
 - Edge cases in existing standards
 - Multi-step workflows that exercise several reference docs together
 
-### Agent Improvements
+### Agent improvements
 
-Agent definitions live in `agents/`. Improvements might include:
+Agent definitions live in `agents/`. Keep them read-only and WooCommerce-specific. Useful changes
+include:
 
 - Additional review dimensions or checklists
 - Better severity calibration
 - Domain-specific expertise (e.g., WooCommerce Blocks, Subscriptions)
 
-## How to Submit
+## Voice and style
+
+- Use sentence case for headings.
+- Write direct instructions in active voice. Prefer `Run`, `Verify`, and `Do not` over vague advice.
+- Separate current facts from forward-looking guidance, and cite official sources for both.
+- Use repository evidence before prescribing tools, structure, compatibility, or tests.
+- Keep authentication, writes, live actions, and publication behind explicit approval.
+
+## How to submit
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b add-blocks-reference`)

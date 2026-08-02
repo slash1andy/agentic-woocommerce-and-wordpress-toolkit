@@ -1,4 +1,4 @@
-# WordPress & WooCommerce Coding Standards
+# WordPress and WooCommerce coding standards
 
 The repository is the executable standard. Read its compatibility declarations, lockfiles, lint and
 static-analysis configuration, neighboring code, and documented commands before changing style or
@@ -9,7 +9,7 @@ tooling. Do not paste a generic WPCS setup into an established project.
 - WordPress PHP Standards: https://developer.wordpress.org/coding-standards/wordpress-coding-standards/php/
 - WooCommerce Coding Standards: https://developer.woocommerce.com/docs/best-practices/coding-standards/
 
-## Repository-First Rules
+## Repository-first rules
 
 - Align syntax and tooling to the project's tested PHP floor and its declared WordPress/WooCommerce
   support. For a new project, choose and test a floor from product/distribution requirements rather
@@ -22,7 +22,7 @@ tooling. Do not paste a generic WPCS setup into an established project.
   requires a focused change.
 - Keep changes consistent with adjacent maintained code; avoid formatting unrelated files.
 
-## Names and Documentation
+## Names and documentation
 
 - Prefix global identifiers: functions, constants, hooks, option/meta/transient keys, cron hooks,
   script/style handles, REST namespaces, CSS selectors, and JavaScript globals.
@@ -34,7 +34,7 @@ tooling. Do not paste a generic WPCS setup into an established project.
   tags to every PHPDoc block.
 - Comments explain non-obvious intent, invariants, or compatibility constraints, not line-by-line code.
 
-## Output and Platform Conventions
+## Output and platform conventions
 
 - Validate canonical input, sanitize for storage, and escape once for the final HTML, attribute, URL,
   CSS, or JavaScript context. Validate JSON with schemas/types rather than HTML-escaping its values.
