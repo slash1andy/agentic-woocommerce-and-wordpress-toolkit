@@ -3,9 +3,11 @@
   "evals": [
     {
       "id": 1,
-      "prompt": "Review a WooCommerce upgrade that migrates millions of order records in batches while new orders continue arriving. Prove interruption, resume, and retry safety without running the migration.",
+      "prompt": "Review the attached synthetic WooCommerce migration, which represents millions of order records processed while new orders continue arriving. Prove interruption, resume, and retry safety without running it.",
       "expected_output": "Performs a read-only upgrade review requiring a stable monotonic cursor over an immutable key, durable progress only after writes commit, bounded batches, and replay evidence showing retries and concurrent growth converge without skipped or duplicated effects.",
-      "files": [],
+      "files": [
+        "evals/fixtures/offset-migration.php"
+      ],
       "expectations": [
         "Requires stable monotonic cursor, interruption-resume, concurrent-growth, and replay tests",
         "Checks idempotency and progress-commit ordering rather than relying on page offsets",
@@ -14,13 +16,13 @@
     },
     {
       "id": 2,
-      "prompt": "Our upgrade changes a WooCommerce Subscriptions renewal callback. The licensed extension is installed in this authorized staging repository. Verify the hook signature and continuity risk.",
-      "expected_output": "Verifies the callback only from the installed, licensed official source and exact installed version, recording accepted arguments, timing, return behavior, affected saved-payment and renewal paths, and read-only evidence.",
+      "prompt": "Our upgrade changes a WooCommerce Subscriptions renewal callback. The licensed extension is installed on authorized staging, but its source was not attached to this evaluation. Verify the hook signature and continuity risk.",
+      "expected_output": "Marks the contract blocked/unknown until the exact installed, licensed official source and version are supplied as authorized input. Does not search public snippets or infer a signature from the user's claim that staging has the extension.",
       "files": [],
       "expectations": [
-        "Uses the authorized installed source instead of memory, snippets, or another version",
-        "Traces renewal idempotency, provider outcome, order transition, retry, and recovery behavior",
-        "Uses fake or sandbox providers for any requested payment rehearsal"
+        "Requires the authorized installed source and exact version as session evidence",
+        "Does not inspect unrelated local paths or guess from memory, snippets, or another version",
+        "Keeps the renewal surface blocked/unknown until the source is supplied"
       ]
     },
     {

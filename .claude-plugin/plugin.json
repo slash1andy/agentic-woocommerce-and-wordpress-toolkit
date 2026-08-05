@@ -1,5 +1,6 @@
 {
   "name": "claude-woocommerce-toolkit",
+  "displayName": "Agentic WooCommerce and WordPress Toolkit",
   "version": "1.0.0",
   "description": "Claude Code skills and a read-only UX agent for WordPress and WooCommerce plugin work.",
   "author": {

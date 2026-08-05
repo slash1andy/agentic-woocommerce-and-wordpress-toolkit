@@ -2,7 +2,8 @@
 
 This repository packages Claude Code skills and a read-only UX agent under the preserved
 `claude-woocommerce-toolkit` plugin namespace. The toolkit starts from the target repository, uses
-official platform APIs, and keeps writes and release actions behind explicit approval.
+official platform APIs, and instructs its components to require explicit approval before writes and
+release actions.
 
 ## What's included
 
@@ -15,7 +16,8 @@ official platform APIs, and keeps writes and release actions behind explicit app
 - **[WooCommerce upgrade safety](skills/woocommerce-upgrade-safety/SKILL.md)** — read-only review of
   migrations, commerce continuity, compatibility, and recovery.
 
-Each skill includes official-format manual evaluation scenarios under its `evals/evals.json` path.
+Each skill includes manual evaluation scenarios following the current `skill-creator` schema under
+its `evals/evals.json` path.
 These are unexecuted scenarios, not benchmark results; see [evaluation status](docs/evaluation-status.md).
 
 ### UX agent
@@ -26,54 +28,29 @@ These are unexecuted scenarios, not benchmark results; see [evaluation status](d
 This release contains **3 skills and 1 read-only UX agent**. The repository validator checks that
 inventory before release.
 
+## Why this fork
+
+The upstream project supplied the three WooCommerce skills and original UX reviewer. This fork
+packages those components as a project-scoped native Claude Code plugin, narrows automatic and
+mutating behavior, removes generic reviewer overlap, and adds a standard-library Python validation
+entry point for package, safety, link, evaluation fixture, and release contracts.
+
 ## Install the native plugin
 
-After `v1.0.0` is published from the reviewed release commit, install that tag for one project.
-Before installing, check for a user- or project-level agent override that would shadow the packaged agent:
+After `claude-woocommerce-toolkit--v1.0.0` is published from the reviewed release commit, use Claude
+Code 2.1.163 or later and install that tag for one project. Plugin components are scoped by the
+preserved `claude-woocommerce-toolkit` namespace, so standalone skills and agents keep their own identities.
+From a shell in the target project's root:
 
 ```bash
-python3 - <<'PY'
-from pathlib import Path
-
-names = {"woocommerce-ux-reviewer"}
-collisions = []
-for root in (Path.home() / ".claude/agents", Path(".claude/agents")):
-    for path in root.rglob("*.md") if root.is_dir() else ():
-        try:
-            parts = path.read_text(encoding="utf-8").split("---", 2)
-        except OSError as exc:
-            raise SystemExit(f"Cannot inspect {path}: {exc}") from exc
-        identity = path.stem
-        if len(parts) == 3 and not parts[0].strip():
-            for line in parts[1].splitlines():
-                key, separator, value = line.partition(":")
-                raw_value = value.split("#", 1)[0].strip()
-                if separator and key.strip().strip("\"'") == "name":
-                    if raw_value.lower() not in {"", "null", "~"}:
-                        identity = raw_value.strip("\"'")
-                    break
-        if identity in names:
-            collisions.append(path)
-
-if collisions:
-    print("Resolve existing agent overrides before install:")
-    print(*collisions, sep="\n")
-    raise SystemExit(1)
-PY
-```
-
-From a shell in the target project's root, declare both the pinned marketplace and plugin at
-project scope:
-
-```bash
-claude plugin marketplace add https://github.com/slash1andy/agentic-woocommerce-and-wordpress-toolkit.git#v1.0.0 --scope project
+set -eu
+claude plugin marketplace add https://github.com/slash1andy/agentic-woocommerce-and-wordpress-toolkit.git#claude-woocommerce-toolkit--v1.0.0 --scope project
 claude plugin install claude-woocommerce-toolkit@claude-woocommerce-toolkit --scope project
 ```
 
 These commands write the marketplace source and enabled plugin to the target repository's
 `.claude/settings.json`, where collaborators can review and accept them. Run `/reload-plugins` in
-Claude Code afterward. See the [installation guide](docs/installation.md) for validation and the
-single complete-copy fallback.
+Claude Code afterward. See the [installation guide](docs/installation.md) for verification details.
 
 ## Usage
 

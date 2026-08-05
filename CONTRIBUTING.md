@@ -53,6 +53,32 @@ include:
 - Use repository evidence before prescribing tools, structure, compatibility, or tests.
 - Keep authentication, writes, live actions, and publication behind explicit approval.
 
+## Test a source checkout
+
+From the repository root, load the plugin without installing or publishing it:
+
+```bash
+claude --plugin-dir .
+```
+
+In that Claude Code session, run `/reload-plugins`, confirm `/plugin` lists all 3 skills and the
+local `woocommerce-ux-reviewer` agent label (scoped as
+`claude-woocommerce-toolkit:woocommerce-ux-reviewer` at runtime), then invoke the explicit
+write-gated development skill through its scoped runtime identity:
+
+```text
+/claude-woocommerce-toolkit:woocommerce-plugin-dev Inspect this repository and stop before writes
+```
+
+With PHP CLI and Claude Code 2.1.163 or later, run the deterministic gates from a separate shell:
+
+```bash
+python3 -B scripts/validate.py
+python3 -B -m unittest discover -s tests -p 'test_*.py'
+claude plugin validate .claude-plugin/plugin.json --strict
+claude plugin validate .claude-plugin/marketplace.json --strict
+```
+
 ## How to submit
 
 1. Fork the repository

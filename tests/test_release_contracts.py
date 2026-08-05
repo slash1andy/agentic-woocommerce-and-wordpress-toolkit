@@ -20,6 +20,7 @@ def read(path: Path) -> str:
 class ReleaseContractsTest(unittest.TestCase):
     def test_all_skills_have_official_format_manual_scenarios(self):
         corpora = {}
+        evidence_cases = 0
         for skill in SKILLS:
             path = ROOT / "skills" / skill / "evals/evals.json"
             with self.subTest(skill=skill):
@@ -37,7 +38,11 @@ class ReleaseContractsTest(unittest.TestCase):
                     self.assertIsInstance(scenario["id"], int)
                     self.assertTrue(scenario["prompt"].strip())
                     self.assertTrue(scenario["expected_output"].strip())
-                    self.assertEqual([], scenario["files"])
+                    self.assertIsInstance(scenario["files"], list)
+                    for relative in scenario["files"]:
+                        fixture = ROOT / "skills" / skill / relative
+                        self.assertTrue(fixture.is_file(), relative)
+                        evidence_cases += 1
                     self.assertGreaterEqual(len(scenario["expectations"]), 2)
                 corpora[skill] = json.dumps(data)
 
@@ -61,17 +66,20 @@ class ReleaseContractsTest(unittest.TestCase):
             "Does not invoke this skill",
         ):
             self.assertIn(marker, corpora["woocommerce-upgrade-safety"])
+        self.assertGreaterEqual(evidence_cases, 3)
 
     def test_evaluation_status_is_truthful(self):
         readme = read(ROOT / "README.md")
         status = read(ROOT / "docs/evaluation-status.md")
         combined = f"{readme}\n{status}"
+        normalized_status = " ".join(status.split())
 
         self.assertIn("manual evaluation scenarios", readme.lower())
         self.assertNotIn("evaluation benchmarks", readme.lower())
         self.assertIn("official `skill-creator` plugin", status)
-        self.assertIn("401", status)
-        self.assertIn("have not been executed", status)
+        self.assertIn("Claude Code 2.1.170", status)
+        self.assertIn("source discovery and invocation", status)
+        self.assertIn("have not been executed", normalized_status)
         self.assertIn("with-skill/without-skill", status)
         self.assertNotIn("response-level evaluation passed", combined.lower())
         self.assertFalse(any(ROOT.rglob("benchmark.json")))
@@ -95,7 +103,12 @@ class ReleaseContractsTest(unittest.TestCase):
             "python3 -B -m unittest discover -s tests -p 'test_*.py'",
             "claude plugin validate .claude-plugin/plugin.json --strict",
             "claude plugin validate .claude-plugin/marketplace.json --strict",
+            'status="$(git status --porcelain=v1)"',
+            'test -z "$status"',
             'git diff --check "$reviewed_base" "$candidate"',
+            'release_diff="$(mktemp "${TMPDIR:-/tmp}/claude-woocommerce-toolkit.release.XXXXXX")"',
+            'test "$release_diff_sha256" = "${REVIEWED_DIFF_SHA256:',
+            "claude plugin tag --dry-run",
         ):
             self.assertIn(command, checklist)
         release_commands = re.search(
@@ -111,7 +124,10 @@ class ReleaseContractsTest(unittest.TestCase):
             text=True,
         )
         self.assertEqual(0, syntax.returncode, syntax.stderr)
+        self.assertTrue(release_commands.startswith("set -eu\n"))
         self.assertIn("REVIEWED_BASE", release_commands)
+        self.assertIn("REVIEWED_DIFF_SHA256", release_commands)
+        self.assertNotIn('test -z "$(git status', release_commands)
         for marker in (
             "copied-cache installation",
             "explicit approval",
@@ -120,12 +136,14 @@ class ReleaseContractsTest(unittest.TestCase):
             "release",
             "marketplace",
             "fake or sandbox providers",
+            "claude-woocommerce-toolkit--v*",
         ):
             self.assertIn(marker, checklist)
         self.assertFalse((ROOT / ".github/workflows").exists())
 
     def test_repository_brand_and_urls_are_current(self):
         expected_name = "Agentic WooCommerce and WordPress toolkit"
+        expected_display_name = "Agentic WooCommerce and WordPress Toolkit"
         expected_slug = "slash1andy/agentic-woocommerce-and-wordpress-toolkit"
         stale_slug = "slash1andy/" + "claude-woocommerce-toolkit"
         expected_description = (
@@ -141,6 +159,7 @@ class ReleaseContractsTest(unittest.TestCase):
         plugin = json.loads(read(ROOT / ".claude-plugin/plugin.json"))
         self.assertEqual(f"https://github.com/{expected_slug}", plugin["repository"])
         marketplace = json.loads(read(ROOT / ".claude-plugin/marketplace.json"))
+        self.assertEqual(expected_display_name, plugin["displayName"])
         self.assertEqual(expected_description, plugin["description"])
         self.assertEqual(expected_description, marketplace["description"])
         contributing = read(ROOT / "CONTRIBUTING.md")
@@ -149,6 +168,17 @@ class ReleaseContractsTest(unittest.TestCase):
         for path in ROOT.rglob("*"):
             if path.is_file() and ".git" not in path.parts and path.suffix in {".md", ".py", ".json"}:
                 self.assertNotIn(stale_slug, read(path), str(path.relative_to(ROOT)))
+
+    def test_contributor_source_checkout_smoke_path_is_documented(self):
+        contributing = read(ROOT / "CONTRIBUTING.md")
+
+        for marker in (
+            "claude --plugin-dir .",
+            "/reload-plugins",
+            "/claude-woocommerce-toolkit:woocommerce-plugin-dev",
+            "claude-woocommerce-toolkit:woocommerce-ux-reviewer",
+        ):
+            self.assertIn(marker, contributing)
 
     def test_ability_example_has_a_discoverable_output_contract(self):
         reference = read(
