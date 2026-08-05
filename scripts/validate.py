@@ -2,18 +2,24 @@
 """Validate the repository's public Claude plugin contract with the standard library."""
 
 import argparse
+import hashlib
+from html import unescape
 import json
 import re
+import shutil
+import subprocess
 import sys
+import tempfile
 from pathlib import Path, PurePosixPath
 from urllib.error import URLError
-from urllib.parse import parse_qsl, urlsplit
-from urllib.request import Request, urlopen
+from urllib.parse import parse_qsl, unquote, urlsplit
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 
 ROOT = Path(__file__).resolve().parents[1]
 PLUGIN = {
     "name": "claude-woocommerce-toolkit",
+    "displayName": "Agentic WooCommerce and WordPress Toolkit",
     "version": "1.0.0",
     "description": "Claude Code skills and a read-only UX agent for WordPress and WooCommerce plugin work.",
     "author": {
@@ -54,8 +60,11 @@ PACKAGE_FILES = {
         "scripts/validate.py",
         "skills/woocommerce-finalize/SKILL.md",
         "skills/woocommerce-finalize/evals/evals.json",
+        "skills/woocommerce-finalize/evals/fixtures/checkout-payment-release.diff",
         "skills/woocommerce-plugin-dev/SKILL.md",
         "skills/woocommerce-plugin-dev/evals/evals.json",
+        "skills/woocommerce-plugin-dev/evals/fixtures/composer.json",
+        "skills/woocommerce-plugin-dev/evals/fixtures/existing-plugin.php",
         "skills/woocommerce-plugin-dev/references/abilities-and-mcp.md",
         "skills/woocommerce-plugin-dev/references/agentic-commerce.md",
         "skills/woocommerce-plugin-dev/references/coding-standards.md",
@@ -68,6 +77,7 @@ PACKAGE_FILES = {
         "skills/woocommerce-plugin-dev/references/woocommerce-apis.md",
         "skills/woocommerce-upgrade-safety/SKILL.md",
         "skills/woocommerce-upgrade-safety/evals/evals.json",
+        "skills/woocommerce-upgrade-safety/evals/fixtures/offset-migration.php",
         "tests/test_p0_contracts.py",
         "tests/test_release_contracts.py",
         "tests/test_validate.py",
@@ -102,6 +112,35 @@ OFFICIAL_HOSTS = {
     "www.gnu.org",
     "www.pcisecuritystandards.org",
 }
+PLACEHOLDER_HOSTS = {"example.com"}
+APPROVED_SHELL_BLOCKS = (
+    ("CONTRIBUTING.md", "c9264fb5ad584850838eb5de08adb5e172452f22f63156cdbaea2a039fff3f8a"),
+    ("CONTRIBUTING.md", "47d48673bd83bcad4dc329be292e23c82a62199393f604e8a14dfd25c43cd376"),
+    ("README.md", "6cfe175c954b1dc351e6fd583477797e606d5de9e8b0eaeb1822289c647d3830"),
+    ("docs/installation.md", "6cfe175c954b1dc351e6fd583477797e606d5de9e8b0eaeb1822289c647d3830"),
+    ("docs/installation.md", "91235142eab660b5eac8301d51a6ab4eb59ff364c405308096081cfb8a52d346"),
+    ("docs/installation.md", "31548d083332917a70917e77608758822e8115a47d4ba18eee7ea207e72ca3b2"),
+    ("docs/release-checklist.md", "15a5006bd871d8b047937ea4b98c8cd052501869e773ff49952931617eaf6777"),
+    ("skills/woocommerce-plugin-dev/references/woocommerce-apis.md", "727b2987406c7ff549c984254dd750ca8be1fc12113835e2bb4ac7ded7392f5f"),
+)
+CREDENTIAL_URL_KEYS = {
+    "access_token",
+    "api-key",
+    "api_key",
+    "apikey",
+    "client-secret",
+    "client_secret",
+    "consumer-key",
+    "consumer-secret",
+    "consumer_key",
+    "consumer_secret",
+    "passwd",
+    "password",
+    "secret",
+    "secret-key",
+    "secret_key",
+    "token",
+}
 
 
 class DuplicateKeyError(ValueError):
@@ -131,6 +170,15 @@ def has_symlink_component(path):
 
 
 def read_text(path, errors):
+    if has_symlink_component(path):
+        try:
+            relative = path.relative_to(ROOT)
+        except ValueError:
+            relative = path
+        error = f"{relative}: path must not contain a symlink"
+        if error not in errors:
+            errors.append(error)
+        return None
     try:
         return path.read_text(encoding="utf-8")
     except UnicodeDecodeError:
@@ -377,6 +425,20 @@ def validate_frontmatter(relative, expected_name, errors, require_explicit=False
         fields[key] = value
         index += 1
 
+    description = fields.get("description")
+    if (
+        not isinstance(description, str)
+        or not description.strip()
+        or (
+            "description" in plain_fields
+            and re.fullmatch(
+                r"(?:~|null|true|false|[-+]?(?:\.inf|\.nan|0b[01_]+|0o[0-7_]+|0x[0-9a-f_]+|(?:\d[\d_]*)(?:\.[\d_]*)?(?:e[-+]?\d[\d_]*)?|\.[\d_]+(?:e[-+]?\d[\d_]*)?))",
+                description,
+                re.IGNORECASE,
+            )
+        )
+    ):
+        errors.append(f"{relative}: frontmatter description must be a nonempty string")
     if fields.get("name") != expected_name:
         errors.append(f"{relative}: frontmatter name must match {expected_name}")
     if require_explicit and (
@@ -384,6 +446,10 @@ def validate_frontmatter(relative, expected_name, errors, require_explicit=False
         or "disable-model-invocation" not in plain_fields
     ):
         errors.append(f"{relative}: disable-model-invocation must be true")
+    if require_explicit and set(fields) != {"name", "description", "disable-model-invocation"}:
+        errors.append(
+            f"{relative}: frontmatter must contain only name, description, and disable-model-invocation"
+        )
     if expected_name == "woocommerce-ux-reviewer":
         if set(fields) != {"name", "description", "tools", "model"}:
             errors.append(f"{relative}: frontmatter must contain only name, description, tools, and model")
@@ -486,25 +552,118 @@ def validate_safety_guidance(errors):
                 break
 
 
-def is_safe_eval_path(item):
-    if "\\" in item or "\0" in item or re.match(r"^[A-Za-z]:", item):
+def is_safe_eval_path(skill_root, item):
+    if (
+        "\\" in item
+        or any(ord(char) < 32 or ord(char) == 127 for char in item)
+        or re.match(r"^[A-Za-z]:", item)
+    ):
         return False
     relative = PurePosixPath(item)
     if relative.is_absolute() or not relative.parts or ".." in relative.parts:
         return False
-    candidate = ROOT.joinpath(*relative.parts)
+    candidate = skill_root.joinpath(*relative.parts)
     try:
-        candidate.resolve().relative_to(ROOT.resolve())
+        resolved = candidate.resolve()
+        resolved.relative_to(skill_root.resolve())
     except (OSError, RuntimeError, ValueError):
         return False
-    return not has_symlink_component(candidate)
+    return (
+        candidate.is_file()
+        and not candidate.is_symlink()
+        and not has_symlink_component(candidate)
+        and resolved.relative_to(ROOT) in PACKAGE_FILES
+    )
+
+
+def is_well_formed_unified_diff(text):
+    def safe_path(value, prefix):
+        if (
+            not value.startswith(prefix)
+            or "\\" in value
+            or any(ord(char) < 32 or ord(char) == 127 for char in value)
+        ):
+            return False
+        relative_value = value[len(prefix):]
+        if re.match(r"^[A-Za-z]:", relative_value):
+            return False
+        relative = PurePosixPath(relative_value)
+        return bool(relative.parts) and not relative.is_absolute() and ".." not in relative.parts
+
+    lines = text.splitlines()
+    section_starts = [index for index, line in enumerate(lines) if line.startswith("diff --git ")]
+    hunk_pattern = re.compile(
+        r"^@@ -\d+(?:,(\d+))? \+\d+(?:,(\d+))? @@(?: .*)?$"
+    )
+    if not section_starts or section_starts[0] != 0:
+        return False
+    for position, start in enumerate(section_starts):
+        end = section_starts[position + 1] if position + 1 < len(section_starts) else len(lines)
+        section = lines[start:end]
+        hunk_lines = [line for line in section if line.startswith("@@")]
+        if not hunk_lines or any(hunk_pattern.fullmatch(line) is None for line in hunk_lines):
+            return False
+        first_hunk = next(index for index, line in enumerate(section) if line.startswith("@@"))
+        paths = section[0].split()
+        old_headers = [line[4:] for line in section[:first_hunk] if line.startswith("--- ")]
+        new_headers = [line[4:] for line in section[:first_hunk] if line.startswith("+++ ")]
+        if (
+            len(paths) != 4
+            or not safe_path(paths[2], "a/")
+            or not safe_path(paths[3], "b/")
+            or len(old_headers) != 1
+            or len(new_headers) != 1
+            or (old_headers[0] != "/dev/null" and not safe_path(old_headers[0], "a/"))
+            or (new_headers[0] != "/dev/null" and not safe_path(new_headers[0], "b/"))
+        ):
+            return False
+        hunk_starts = [index for index, line in enumerate(section) if line.startswith("@@")]
+        for hunk_position, hunk_start in enumerate(hunk_starts):
+            match = hunk_pattern.fullmatch(section[hunk_start])
+            if match is None:
+                return False
+            hunk_end = (
+                hunk_starts[hunk_position + 1]
+                if hunk_position + 1 < len(hunk_starts)
+                else len(section)
+            )
+            old_count = new_count = 0
+            for line in section[hunk_start + 1:hunk_end]:
+                if line.startswith("\\ No newline at end of file"):
+                    continue
+                if not line or line[0] not in " +-":
+                    return False
+                old_count += line[0] in " -"
+                new_count += line[0] in " +"
+            if old_count != int(match.group(1) or 1) or new_count != int(match.group(2) or 1):
+                return False
+    git = shutil.which("git")
+    if git is None:
+        return False
+    try:
+        # Fixtures are creation-only; synthesize preimages if modification fixtures are added.
+        with tempfile.TemporaryDirectory(prefix="claude-toolkit-diff-") as directory:
+            result = subprocess.run(
+                [git, "apply", "--check"],
+                input=text.encode("utf-8"),
+                cwd=directory,
+                check=False,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=15,
+            )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return result.returncode == 0
 
 
 def validate_evals(errors):
     top_keys = {"skill_name", "evals"}
     case_keys = {"id", "prompt", "expected_output", "files", "expectations"}
+    validated_fixture_files = set()
     for name in SKILLS:
         relative = Path("skills") / name / "evals/evals.json"
+        skill_root = ROOT / "skills" / name
         data = load_json(relative, errors)
         if data is None:
             continue
@@ -539,8 +698,42 @@ def validate_evals(errors):
                 not isinstance(item, str) or not item.strip() for item in files
             ):
                 errors.append(f"{label} files must be a list of nonempty strings")
-            elif any(not is_safe_eval_path(item) for item in files):
-                errors.append(f"{label} files must stay within the repository")
+            elif any(not is_safe_eval_path(skill_root, item) for item in files):
+                errors.append(f"{label} files must resolve to packaged regular files within the skill")
+            else:
+                for item in files:
+                    candidate = skill_root.joinpath(*PurePosixPath(item).parts)
+                    if candidate in validated_fixture_files:
+                        continue
+                    validated_fixture_files.add(candidate)
+                    text = read_text(candidate, errors)
+                    if text is None:
+                        continue
+                    if candidate.suffix == ".diff" and not is_well_formed_unified_diff(text):
+                        errors.append(f"{candidate.relative_to(ROOT)}: malformed unified diff fixture")
+                    elif candidate.suffix == ".json":
+                        try:
+                            json.loads(text, object_pairs_hook=unique_object)
+                        except (DuplicateKeyError, json.JSONDecodeError):
+                            errors.append(f"{candidate.relative_to(ROOT)}: malformed JSON fixture")
+                    elif candidate.suffix == ".php":
+                        php = shutil.which("php")
+                        if php is None:
+                            errors.append("eval fixtures: PHP CLI is required for syntax validation")
+                            continue
+                        try:
+                            result = subprocess.run(
+                                [php, "-n", "-l", str(candidate)],
+                                check=False,
+                                stdout=subprocess.DEVNULL,
+                                stderr=subprocess.DEVNULL,
+                                timeout=15,
+                            )
+                        except (OSError, subprocess.TimeoutExpired):
+                            errors.append(f"{candidate.relative_to(ROOT)}: PHP syntax validation failed")
+                        else:
+                            if result.returncode:
+                                errors.append(f"{candidate.relative_to(ROOT)}: malformed PHP fixture")
             expectations = case["expectations"]
             if not isinstance(expectations, list) or len(expectations) < 2 or any(
                 not isinstance(item, str) or not item.strip() for item in expectations
@@ -587,24 +780,15 @@ def validate_docs(errors):
                 texts[relative] = text
     combined = "\n".join(texts.values())
     required = (
-        "claude plugin marketplace add https://github.com/slash1andy/agentic-woocommerce-and-wordpress-toolkit.git#v1.0.0 --scope project",
+        "claude plugin marketplace add https://github.com/slash1andy/agentic-woocommerce-and-wordpress-toolkit.git#claude-woocommerce-toolkit--v1.0.0 --scope project",
         "claude plugin install claude-woocommerce-toolkit@claude-woocommerce-toolkit --scope project",
         "/reload-plugins",
-        'target="$skills_root/claude-woocommerce-toolkit"',
-        'Path.home() / ".claude/agents"',
-        'Path(".claude/agents")',
-        'names = {"woocommerce-ux-reviewer"}',
+        "PHP CLI",
+        "2.1.163",
+        "claude-woocommerce-toolkit:woocommerce-ux-reviewer",
         "/code-review",
         "/claude-woocommerce-toolkit:woocommerce-plugin-dev",
         "set -eu",
-        "git clone --branch v1.0.0 --depth 1",
-        'project_root="$(pwd -P)"',
-        '[ -L "$target" ]',
-        "show-ref --verify --quiet refs/tags/v1.0.0",
-        "rev-parse 'refs/tags/v1.0.0^{commit}'",
-        'git -C "$source" archive',
-        'test ! -e "$plugin/.git"',
-        'rglob("*.md")',
     )
     for marker in required:
         if marker not in combined:
@@ -615,40 +799,61 @@ def validate_docs(errors):
             errors.append(f"{relative}: generic reviews must use /code-review")
 
     unsafe = False
-    shell = "\n".join(
-        re.findall(r"```(?:bash|sh|shell)\s*\n(.*?)\n```", combined, re.DOTALL | re.IGNORECASE)
+    package_markdown = []
+    for relative in sorted(PACKAGE_FILES):
+        if relative.suffix != ".md":
+            continue
+        path = ROOT / relative
+        if path.is_file() and not path.is_symlink():
+            text = read_text(path, errors)
+            if text is not None:
+                package_markdown.append((relative.as_posix(), text))
+    shell_blocks = []
+    shell_labels = {"", "bash", "sh", "shell", "zsh", "powershell", "pwsh"}
+    for relative, text in package_markdown:
+        fence = None
+        fence_length = 0
+        label = None
+        block = []
+        for line in text.splitlines():
+            opening = re.fullmatch(
+                r" {0,3}(`{3,}|~{3,})([A-Za-z0-9_-]*)(?:[ \t]+.*)?",
+                line,
+            )
+            if fence is None and opening:
+                fence = opening.group(1)[0]
+                fence_length = len(opening.group(1))
+                label = opening.group(2).lower()
+                block = []
+            elif fence is not None and re.fullmatch(
+                rf" {{0,3}}{re.escape(fence)}{{{fence_length},}}[ \t]*",
+                line,
+            ):
+                if label in shell_labels:
+                    shell_blocks.append((relative, "\n".join(block)))
+                fence = None
+                label = None
+            elif fence is not None:
+                block.append(line)
+        if fence is not None and label in shell_labels:
+            shell_blocks.append((relative, "\n".join(block)))
+    observed_shell_blocks = sorted(
+        (relative, hashlib.sha256(block.encode("utf-8")).hexdigest())
+        for relative, block in shell_blocks
     )
-    shell = re.sub(r"\\[ \t]*\n[ \t]*", " ", shell)
-    shell = re.sub(r"\|[ \t]*\n[ \t]*", "| ", shell)
-    for line in (line.strip() for line in shell.splitlines()):
-        if re.match(
-            r"(?i)^(?:git pull|ln\s+-(?:\S*s\S*)|rm\s+-rf\s+(?:--\s+)?[\"']?\.claude/skills(?:[\"'/\s]|$))",
-            line,
-        ):
-            unsafe = True
-        if "git clone" in line.lower() and not re.match(
-            r"(?i)^git clone --branch v1\.0\.0 --depth 1(?:\s|\\|$)", line
-        ):
-            unsafe = True
-        if re.match(r"(?i)^cp\b", line) and re.search(r"(?:skills|agents)(?:/|\b)", line):
-            unsafe = True
-        if re.search(
-            r"(?i)\b(?:curl|wget)\b.*\|\s*(?:(?:/usr/bin/env|env)\s+)?(?:/(?:usr/)?bin/)?(?:sh|bash)\b",
-            line,
-        ):
-            unsafe = True
+    if observed_shell_blocks != sorted(APPROVED_SHELL_BLOCKS):
+        unsafe = True
     if re.search(
         r"(?i)(?:agent|skill).{0,40}(?:trigger(?:s|ed)?|invoked) automatically|automatically (?:trigger(?:s|ed)?|invoked)",
         combined,
     ):
         unsafe = True
     if unsafe:
-        errors.append("installation docs: unsafe installation guidance")
+        errors.append("package Markdown: unsafe shell guidance")
 
     self_link = "https://github.com/Automattic/claude-woocommerce-toolkit"
     stale_public_text = (
         "Claude WooCommerce Toolkit",
-        "Agentic WooCommerce and WordPress Toolkit",
         "https://github.com/slash1andy/" "claude-woocommerce-toolkit",
     )
     occurrences = []
@@ -674,58 +879,212 @@ def validate_docs(errors):
         errors.append("Automattic self-source link is allowed only on the README provenance line")
 
 
-def official_urls(errors):
-    found = set()
-    pattern = re.compile(r"https?://[^\s<>\]`\"']+")
-    for path in ROOT.rglob("*"):
-        if (
-            not path.is_file()
-            or path.is_symlink()
-            or path.suffix not in {".md", ".json"}
-            or ".git" in path.parts
-        ):
+def validate_public_hygiene(errors):
+    private_home = re.compile(
+        r"(?:/Users/[A-Za-z0-9._-]+/|/home/[A-Za-z0-9._-]+/|[A-Za-z]:\\Users\\[A-Za-z0-9._-]+\\)"
+    )
+    private_key = re.compile(
+        r"-----BEGIN (?:(?:OPENSSH|RSA|EC|DSA|ENCRYPTED) )?PRIVATE KEY-----"
+    )
+    credential = re.compile(
+        r"(?:\bAKIA[0-9A-Z]{16}\b|\bgh[pousr]_[A-Za-z0-9]{20,}\b|\bsk-[A-Za-z0-9]{20,}\b)"
+    )
+    link_pattern = re.compile(r"\]\(\s*(?:<([^>]+)>|([^\s)]+))")
+    reference_pattern = re.compile(r"(?m)^\s*\[[^\]]+\]:\s*(?:<([^>]+)>|([^\s]+))")
+    html_pattern = re.compile(
+        r"(?i)\b(href|src|srcset|action|formaction|data)\s*=\s*(?:[\"']([^\"']+)[\"']|([^\s>]+))"
+    )
+    autolink_pattern = re.compile(r"<((?:[A-Za-z][A-Za-z0-9+.-]*:|//)[^<>\s]+)>")
+    root = ROOT.resolve()
+
+    for relative in sorted(PACKAGE_FILES):
+        path = ROOT / relative
+        if not path.is_file() or path.is_symlink():
             continue
         text = read_text(path, errors)
         if text is None:
             continue
-        for raw in pattern.findall(text):
-            url = raw.rstrip("),.;:")
+        for pattern, finding in (
+            (private_home, "private home path"),
+            (private_key, "private key material"),
+            (credential, "credential-like value"),
+        ):
+            match = pattern.search(text)
+            if match:
+                line_number = text.count("\n", 0, match.start()) + 1
+                errors.append(f"{relative}:{line_number}: {finding}")
+        if path.suffix != ".md":
+            continue
+
+        markdown_targets = [bracketed or plain for bracketed, plain in link_pattern.findall(text)]
+        markdown_targets.extend(
+            bracketed or plain for bracketed, plain in reference_pattern.findall(text)
+        )
+        html_targets = []
+        for attribute, quoted, plain in html_pattern.findall(text):
+            value = quoted or plain
+            if attribute.lower() == "srcset":
+                html_targets.extend(
+                    candidate.strip().split()[0]
+                    for candidate in value.split(",")
+                    if candidate.strip()
+                )
+            else:
+                html_targets.append(value)
+        targets = (
+            *markdown_targets,
+            *html_targets,
+            *autolink_pattern.findall(text),
+        )
+        for target in targets:
+            target = unescape(target)
             try:
-                parsed = urlsplit(url)
-                query_keys = {
-                    key.lower()
-                    for key, _ in parse_qsl(parsed.query, keep_blank_values=True)
-                }
+                parsed = urlsplit(target)
             except ValueError:
-                errors.append(f"{path.relative_to(ROOT)}: malformed URL")
+                errors.append(f"{relative}: malformed link destination")
                 continue
-            credential_keys = {
-                "api_key",
-                "client_secret",
-                "consumer_key",
-                "consumer_secret",
-                "password",
-                "secret",
-                "token",
-            }
-            if parsed.username or parsed.password or query_keys & credential_keys:
-                errors.append(f"{path.relative_to(ROOT)}: URL contains credentials")
-            elif parsed.hostname in OFFICIAL_HOSTS:
-                found.add(url)
+            scheme = parsed.scheme.lower()
+            if target.startswith("#"):
+                continue
+            if scheme:
+                if scheme not in {"http", "https", "mailto"}:
+                    errors.append(f"{relative}: unsupported link scheme")
+                elif scheme in {"http", "https"}:
+                    error = url_policy_error(target, allow_placeholders=True)
+                    if error:
+                        errors.append(f"{relative}: {error}")
+                continue
+            if target.startswith("//"):
+                errors.append(f"{relative}: unsupported link scheme")
+                continue
+            link_path = unquote(parsed.path)
+            if not link_path:
+                continue
+            if (
+                PurePosixPath(link_path).is_absolute()
+                or "\\" in link_path
+                or any(ord(char) < 32 or ord(char) == 127 for char in link_path)
+            ):
+                errors.append(f"{relative}: unsafe local link")
+                continue
+            parts = list(relative.parent.parts)
+            unsafe = False
+            for part in PurePosixPath(link_path).parts:
+                if part == "..":
+                    if not parts:
+                        unsafe = True
+                        break
+                    parts.pop()
+                elif part != ".":
+                    parts.append(part)
+            if unsafe:
+                errors.append(f"{relative}: unsafe local link")
+                continue
+            candidate = ROOT.joinpath(*parts)
+            if has_symlink_component(candidate) or candidate.is_symlink() or not candidate.is_file():
+                errors.append(f"{relative}: broken Markdown link")
+                continue
+            try:
+                resolved = candidate.resolve()
+                resolved.relative_to(root)
+            except (OSError, RuntimeError, ValueError):
+                errors.append(f"{relative}: broken Markdown link")
+
+
+def nested_strings(value):
+    if isinstance(value, str):
+        yield value
+    elif isinstance(value, dict):
+        for item in value.values():
+            yield from nested_strings(item)
+    elif isinstance(value, list):
+        for item in value:
+            yield from nested_strings(item)
+
+
+def url_policy_error(url, allow_placeholders=False):
+    try:
+        parsed = urlsplit(url)
+        key_sources = [parsed.query, parsed.fragment]
+        if "?" in parsed.fragment:
+            key_sources.append(parsed.fragment.split("?", 1)[1])
+        keys = {
+            key.lower()
+            for source in key_sources
+            for key, _ in parse_qsl(source, keep_blank_values=True)
+        }
+        port = parsed.port
+        hostname = parsed.hostname.lower() if parsed.hostname else None
+    except ValueError:
+        return "malformed URL"
+    if parsed.username is not None or parsed.password is not None or keys & CREDENTIAL_URL_KEYS:
+        return "URL contains credentials"
+    if parsed.scheme.lower() != "https":
+        return "URLs must use HTTPS"
+    if port not in {None, 443}:
+        return "unapproved URL port"
+    if allow_placeholders and hostname in PLACEHOLDER_HOSTS:
+        return None
+    if hostname not in OFFICIAL_HOSTS:
+        return "unapproved URL host"
+    return None
+
+
+def official_urls(errors):
+    found = set()
+    pattern = re.compile(r"https?://[^\s<>\]`\"']+", re.IGNORECASE)
+    for relative in sorted(PACKAGE_FILES):
+        if relative.suffix not in {".md", ".json", ".php", ".diff"}:
+            continue
+        path = ROOT / relative
+        if not path.is_file() or path.is_symlink():
+            continue
+        text = read_text(path, errors)
+        if text is None:
+            continue
+        sources = [text]
+        if path.suffix == ".json":
+            try:
+                sources.extend(nested_strings(json.loads(text, object_pairs_hook=unique_object)))
+            except (DuplicateKeyError, json.JSONDecodeError):
+                pass
+        for source in sources:
+            for raw in pattern.findall(source):
+                url = unescape(raw.rstrip("),.;:"))
+                error = url_policy_error(url, allow_placeholders=True)
+                if error:
+                    errors.append(f"{relative}: {error}")
+                elif (urlsplit(url).hostname or "").lower() in OFFICIAL_HOSTS:
+                    found.add(url)
     return sorted(found)
 
 
+class AllowlistRedirectHandler(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        if url_policy_error(newurl):
+            raise URLError("redirect rejected")
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
 def check_urls(urls, errors):
+    opener = build_opener(AllowlistRedirectHandler())
     for url in urls:
         try:
             request = Request(
                 url,
                 headers={"Range": "bytes=0-0", "User-Agent": "claude-woocommerce-toolkit-validator/1.0"},
             )
-            with urlopen(request, timeout=5) as response:
+            with opener.open(request, timeout=5) as response:
+                if url_policy_error(response.geturl()):
+                    errors.append("URL check redirected outside the allowlist")
+                    continue
                 response.read(1)
-        except (OSError, URLError, ValueError) as exc:
-            errors.append(f"URL check failed for {url}: {exc}")
+        except Exception as exc:
+            try:
+                hostname = urlsplit(url).hostname or "unknown-host"
+            except ValueError:
+                hostname = "unknown-host"
+            errors.append(f"URL check failed for {hostname}: {type(exc).__name__}")
     return len(urls)
 
 
@@ -741,8 +1100,9 @@ def main(argv=None):
     validate_evals(errors)
     validate_cross_references(errors)
     validate_docs(errors)
+    validate_public_hygiene(errors)
     urls = official_urls(errors)
-    url_count = check_urls(urls, errors) if args.check_urls else 0
+    url_count = check_urls(urls, errors) if args.check_urls and not errors else 0
 
     if errors:
         for error in errors:

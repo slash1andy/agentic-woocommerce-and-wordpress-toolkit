@@ -1,0 +1,47 @@
+diff --git a/src/CheckoutGateway.php b/src/CheckoutGateway.php
+new file mode 100644
+--- /dev/null
++++ b/src/CheckoutGateway.php
+@@ -0,0 +1,29 @@
++<?php
++namespace FixtureCommerce;
++
++final class CheckoutGateway {
++    public static function register(): void {
++        register_rest_route('fixture/v1', '/checkout/(?P<order_id>\\d+)', array(
++            'methods'             => 'POST',
++            'callback'            => array(self::class, 'confirm_checkout'),
++            'permission_callback' => static fn (): bool => current_user_can('manage_woocommerce'),
++        ));
++        add_action('woocommerce_api_fixture_gateway', array(self::class, 'handle_callback'));
++    }
++
++    public static function confirm_checkout($request) {
++        $order = wc_get_order(absint($request['order_id']));
++        if (! $order) {
++            return new WP_Error('missing_order', 'Order not found.', array('status' => 404));
++        }
++        $order->payment_complete();
++        return rest_ensure_response(array('status' => $order->get_status()));
++    }
++
++    public static function handle_callback(): void {
++        $order = wc_get_order(absint($_POST['order_id'] ?? 0));
++        if ($order) {
++            $order->update_status('processing');
++        }
++    }
++}
+diff --git a/tests/CheckoutGatewayTest.php b/tests/CheckoutGatewayTest.php
+new file mode 100644
+--- /dev/null
++++ b/tests/CheckoutGatewayTest.php
+@@ -0,0 +1,8 @@
++<?php
++final class CheckoutGatewayTest extends WP_UnitTestCase {
++    public function test_missing_order_returns_404(): void {
++        $response = FixtureCommerce\\CheckoutGateway::confirm_checkout(array('order_id' => 999));
++        $this->assertWPError($response);
++        $this->assertSame(404, $response->get_error_data()['status']);
++    }
++}

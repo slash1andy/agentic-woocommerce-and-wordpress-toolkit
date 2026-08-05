@@ -3,9 +3,12 @@
   "evals": [
     {
       "id": 1,
-      "prompt": "I want to build a WooCommerce plugin that adds a loyalty points system. Customers earn points on purchases and can redeem them for discounts. Start the project for me.",
+      "prompt": "The attached files are a minimal existing WooCommerce extension. Add a loyalty points system where customers earn points on purchases and redeem them for discounts. Start the project for me.",
       "expected_output": "Inspects the repository and its existing architecture, dependencies, tests, and conventions before proposing work. Asks only for material requirements that repository evidence cannot answer, then presents a minimal approval-gated plan. Does not write files until the user approves the exact scope.",
-      "files": [],
+      "files": [
+        "evals/fixtures/existing-plugin.php",
+        "evals/fixtures/composer.json"
+      ],
       "expectations": [
         "Inspects repository structure, manifests, dependencies, neighboring code, tests, and project instructions before selecting an implementation",
         "Reuses the repository's existing architecture and asks only about unresolved product requirements such as earning, redemption, admin controls, and compliance",
@@ -15,11 +18,15 @@
     },
     {
       "id": 2,
-      "prompt": "OK I've answered all your questions about my WooCommerce shipping rate calculator plugin. Here's the brief: it calculates shipping based on package dimensions and zone. Target market is US small businesses, sold on WooCommerce Marketplace. Needs admin settings for zones and rates, customer sees calculated rates at checkout. No external APIs. Now scaffold the plugin structure for me.",
-      "expected_output": "Inspects and extends the repository's existing plugin structure with the smallest supported shipping-method implementation. Reuses current loading, dependency, settings, and test patterns; adds new tooling only when the requested behavior requires it. Exercises Classic and Blocks/Store API checkout paths, and declares compatibility only when evidence supports it.",
-      "files": [],
+      "prompt": "Extend the attached minimal WooCommerce plugin into a shipping rate calculator. It calculates shipping from package dimensions and zone for US small businesses, will be sold on WooCommerce Marketplace, needs admin settings for zones and rates, and shows calculated rates at checkout. No external APIs. Scaffold the smallest supported structure.",
+      "expected_output": "Inspects the repository, presents the exact smallest implementation and verification scope, and stops for explicit write approval. After approval, extends the existing plugin structure using current loading, dependency, settings, and test patterns; adds new tooling only when required. Exercises claimed Classic and Blocks/Store API checkout paths, and declares compatibility only when evidence supports it.",
+      "files": [
+        "evals/fixtures/existing-plugin.php",
+        "evals/fixtures/composer.json"
+      ],
       "expectations": [
         "Inspects the repository before adding files and follows its existing loading, namespace, dependency, and test conventions",
+        "Presents the exact files and verification scope and does not write implementation code before explicit approval",
         "Keeps the existing main plugin header current with supported WordPress and WooCommerce requirements",
         "Declares HPOS compatibility only when the implementation touches order storage and tests support the declaration",
         "Exercises claimed Classic and Blocks/Store API checkout paths with supported WooCommerce extension points and does not declare compatibility without tests",
@@ -33,10 +40,14 @@
     },
     {
       "id": 3,
-      "prompt": "I need to add a custom REST API endpoint to my WooCommerce plugin that lets external systems query order fulfillment status. The endpoint should be at /wp-json/my-plugin/v1/fulfillment/{order_id} and return the fulfillment status, tracking number, and estimated delivery date. Write the endpoint class with full tests.",
-      "expected_output": "Creates a REST API controller class with proper permission callbacks, input validation, HPOS-compatible order data retrieval, schema-declared JSON output, and unit and integration tests covering authentication, valid requests, invalid order IDs, and missing data.",
-      "files": [],
+      "prompt": "Add a custom REST API endpoint to the attached WooCommerce plugin that lets external systems query order fulfillment status. The endpoint should be at /wp-json/my-plugin/v1/fulfillment/{order_id} and return the fulfillment status, tracking number, and estimated delivery date. Write the endpoint class with full tests.",
+      "expected_output": "Inspects the repository, presents the exact files and verification scope, and stops for explicit write approval. After approval, creates a REST API controller with proper permission callbacks, input validation, HPOS-compatible order retrieval, schema-declared JSON output, and tests covering authentication, valid requests, invalid IDs, and missing data.",
+      "files": [
+        "evals/fixtures/existing-plugin.php",
+        "evals/fixtures/composer.json"
+      ],
       "expectations": [
+        "Does not write the endpoint or tests before explicit approval of the exact file and verification scope",
         "Uses permission_callback with current_user_can check (not just __return_true)",
         "Validates and sanitizes the order_id parameter",
         "Uses WooCommerce CRUD ($order->get_meta()) not get_post_meta() for order data",
@@ -48,9 +59,11 @@
     },
     {
       "id": 4,
-      "prompt": "I'm building a WooCommerce gateway-companion plugin and I want it to be ready for AI shopping agents. I'd like to expose a read-only 'recent orders' operation through the shared WordPress MCP Adapter. How should I build that?",
+      "prompt": "The attached WooCommerce gateway-companion plugin needs a read-only 'recent orders' operation through the shared WordPress MCP Adapter. How should I build it for AI shopping agents?",
       "expected_output": "Registers a WordPress Ability on the wp_abilities_api_init hook via wp_register_ability() with the woocommerce category, input/output schema, a real permission_callback, and meta.mcp.public for the shared WordPress MCP Adapter. Defaults to read-only and uses WooCommerce CRUD inside execute_callback. Treats woocommerce_mcp_include_ability as deprecated endpoint compatibility only. Does not expose secrets or use an open permission check.",
-      "files": [],
+      "files": [
+        "evals/fixtures/existing-plugin.php"
+      ],
       "expectations": [
         "Registers the ability on the wp_abilities_api_init hook, guarded by function_exists('wp_register_ability')",
         "Defines input_schema and output_schema for the ability",

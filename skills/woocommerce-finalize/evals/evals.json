@@ -3,11 +3,13 @@
   "evals": [
     {
       "id": 1,
-      "prompt": "Run the WooCommerce finalization review on this release candidate. Trace the changed checkout, payment callback, and order-status paths and report release blockers.",
+      "prompt": "Run the WooCommerce finalization review on the attached synthetic release diff. Trace the changed checkout, payment callback, and order-status paths and report release blockers.",
       "expected_output": "Performs a read-only, evidence-based code-health and Woo traceability audit, classifies each changed path, and returns findings in chat. Does not edit files, install dependencies, call providers, or apply fixes.",
-      "files": [],
+      "files": [
+        "evals/fixtures/checkout-payment-release.diff"
+      ],
       "expectations": [
-        "Inspects the active diff and configured repository evidence before making claims",
+        "Inspects the attached synthetic diff and only the configured repository evidence needed to interpret it before making claims",
         "Traces each changed Woo path from entry point through authorization, business logic, persistence or side effect, and runtime readback",
         "Keeps the audit read-only and marks missing or stale evidence unverified"
       ]
@@ -24,12 +26,14 @@
     },
     {
       "id": 3,
-      "prompt": "Before release, audit the changed Blocks checkout and Store API request path through HPOS order persistence. Show verified and unverified links; do not fix anything.",
-      "expected_output": "Uses the finalization skill for a read-only traceability audit of only the claimed Blocks, Store API, and HPOS surfaces. Does not edit code and reports concrete evidence, failure impact, and follow-up verification.",
-      "files": [],
+      "prompt": "Before release, audit the attached synthetic checkout/payment diff through Woo order persistence. Show verified and unverified links; do not fix anything.",
+      "expected_output": "Uses the finalization skill for a read-only traceability audit of only the surfaces present in the diff. Does not edit code and reports concrete evidence, failure impact, and follow-up verification.",
+      "files": [
+        "evals/fixtures/checkout-payment-release.diff"
+      ],
       "expectations": [
         "Separates verified, broken, suspicious, and unverified paths using file and line evidence",
-        "Does not declare Classic, Blocks, Store API, or HPOS support beyond the inspected implementation and tests",
+        "Does not declare Classic, Blocks, Store API, or HPOS support beyond the attached implementation and tests",
         "Leaves any correction for a separately approved write scope"
       ]
     }

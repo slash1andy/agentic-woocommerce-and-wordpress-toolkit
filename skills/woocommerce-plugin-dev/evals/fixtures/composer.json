@@ -1,0 +1,9 @@
+{
+  "name": "example/fixture-commerce-extension",
+  "type": "wordpress-plugin",
+  "autoload": {
+    "psr-4": {
+      "FixtureCommerce\\": "src/"
+    }
+  }
+}
