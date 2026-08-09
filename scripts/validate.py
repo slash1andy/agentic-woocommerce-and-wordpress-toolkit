@@ -893,6 +893,9 @@ def validate_public_hygiene(errors):
     credential = re.compile(
         r"(?:\bAKIA[0-9A-Z]{16}\b|\bgh[pousr]_[A-Za-z0-9]{20,}\b|\bsk-[A-Za-z0-9]{20,}\b)"
     )
+    project_reference = re.compile(
+        r"(?i)\b(?:gym" r"core|haan" r"paa|h" r"ma)\b|\b163" r"0891\b"
+    )
     link_pattern = re.compile(r"\]\(\s*(?:<([^>]+)>|([^\s)]+))")
     reference_pattern = re.compile(r"(?m)^\s*\[[^\]]+\]:\s*(?:<([^>]+)>|([^\s]+))")
     html_pattern = re.compile(
@@ -912,6 +915,7 @@ def validate_public_hygiene(errors):
             (private_home, "private home path"),
             (private_key, "private key material"),
             (credential, "credential-like value"),
+            (project_reference, "project-specific reference"),
         ):
             match = pattern.search(text)
             if match:
