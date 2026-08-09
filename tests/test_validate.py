@@ -1201,6 +1201,40 @@ new file mode 100644
         self.assertNotEqual(0, result.returncode)
         self.assertIn("broken cross-reference", result.stderr)
 
+    def test_hermes_adapter_is_packaged_and_uses_native_tools(self):
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        guide = (ROOT / "docs/hermes-agent.md").read_text(encoding="utf-8")
+        reference = (
+            ROOT / "skills/woocommerce-plugin-dev/references/hermes-tools.md"
+        ).read_text(encoding="utf-8")
+        skill = (ROOT / "skills/woocommerce-plugin-dev/SKILL.md").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("docs/hermes-agent.md", readme)
+        self.assertIn("skills:\n  external_dirs:", guide)
+        self.assertIn("hermes skills list", guide)
+        self.assertIn("/woocommerce-plugin-dev", guide)
+        self.assertIn("references/hermes-tools.md", skill)
+        self.assertIn(
+            "https://hermes-agent.nousresearch.com/docs/reference/tools-reference",
+            reference,
+        )
+        for tool in (
+            "read_file",
+            "search_files",
+            "patch",
+            "write_file",
+            "terminal",
+            "execute_code",
+            "delegate_task",
+            "web_search",
+            "web_extract",
+            "session_search",
+            "skill_view",
+        ):
+            self.assertIn(f"`{tool}`", reference)
+
 
 if __name__ == "__main__":
     unittest.main()

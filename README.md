@@ -52,6 +52,12 @@ These commands write the marketplace source and enabled plugin to the target rep
 `.claude/settings.json`, where collaborators can review and accept them. Run `/reload-plugins` in
 Claude Code afterward. See the [installation guide](docs/installation.md) for verification details.
 
+## Use with Hermes Agent
+
+Hermes can load the portable skill directories directly alongside the official WordPress skill
+library. See the [Hermes Agent guide](docs/hermes-agent.md) for external-directory configuration,
+native tool routing, discovery verification, and update behavior.
+
 ## Usage
 
 All three skills require explicit invocation. Plugin skills use Claude Code's `plugin-name:skill-name` namespace:

@@ -90,6 +90,7 @@ Read only the references relevant to the behavior:
 | `references/agentic-commerce.md` | Adding agent-facing discovery or checkout behavior |
 | `references/pci-script-management.md` | Loading or changing payment-page scripts |
 | `references/marketplace-submission.md` | Preparing a distribution submission |
+| `references/hermes-tools.md` | Running this skill with Hermes Agent's native tools |
 
 ## Completion check
 
