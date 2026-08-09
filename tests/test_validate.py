@@ -1201,6 +1201,20 @@ new file mode 100644
         self.assertNotEqual(0, result.returncode)
         self.assertIn("broken cross-reference", result.stderr)
 
+    def test_project_specific_reference_fails(self):
+        def add_project_reference(repo):
+            path = repo / "skills/woocommerce-plugin-dev/SKILL.md"
+            path.write_text(
+                path.read_text(encoding="utf-8")
+                + "\nUse the Gym" "Core Haan" "paa staging procedure for site 163" "0891.\n",
+                encoding="utf-8",
+            )
+
+        result = self.run_after(add_project_reference)
+
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("project-specific reference", result.stderr)
+
     def test_hermes_adapter_is_packaged_and_uses_native_tools(self):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         guide = (ROOT / "docs/hermes-agent.md").read_text(encoding="utf-8")
