@@ -55,6 +55,7 @@ PACKAGE_FILES = {
         "SECURITY.md",
         "agents/woocommerce-ux-reviewer.md",
         "docs/evaluation-status.md",
+        "docs/hermes-agent.md",
         "docs/installation.md",
         "docs/release-checklist.md",
         "scripts/validate.py",
@@ -68,6 +69,7 @@ PACKAGE_FILES = {
         "skills/woocommerce-plugin-dev/references/abilities-and-mcp.md",
         "skills/woocommerce-plugin-dev/references/agentic-commerce.md",
         "skills/woocommerce-plugin-dev/references/coding-standards.md",
+        "skills/woocommerce-plugin-dev/references/hermes-tools.md",
         "skills/woocommerce-plugin-dev/references/marketplace-submission.md",
         "skills/woocommerce-plugin-dev/references/pci-script-management.md",
         "skills/woocommerce-plugin-dev/references/plugin-architecture.md",
@@ -85,6 +87,7 @@ PACKAGE_FILES = {
 }
 DOCS = (
     Path("README.md"),
+    Path("docs/hermes-agent.md"),
     Path("docs/installation.md"),
     Path("SECURITY.md"),
     Path("docs/evaluation-status.md"),
@@ -102,6 +105,7 @@ OFFICIAL_HOSTS = {
     "developer.wordpress.org",
     "docs.anthropic.com",
     "github.com",
+    "hermes-agent.nousresearch.com",
     "make.wordpress.org",
     "modelcontextprotocol.io",
     "owasp.org",
