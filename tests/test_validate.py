@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 PLUGIN = {
     "name": "claude-woocommerce-toolkit",
     "displayName": "Agentic WooCommerce and WordPress Toolkit",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "description": "Claude Code skills and a read-only UX agent for WordPress and WooCommerce plugin work.",
     "author": {
         "name": "Andrew Wikel",
@@ -88,7 +88,7 @@ class ValidateRepositoryTest(unittest.TestCase):
                 if path.exists()
                 else MARKETPLACE.copy()
             )
-            data["plugins"][0]["version"] = "1.0.0"
+            data["plugins"][0]["version"] = "1.1.0"
             path.parent.mkdir(exist_ok=True)
             path.write_text(json.dumps(data), encoding="utf-8")
 
@@ -215,7 +215,7 @@ class ValidateRepositoryTest(unittest.TestCase):
 
         self.assertIn(
             "claude plugin marketplace add "
-            "https://github.com/slash1andy/agentic-woocommerce-and-wordpress-toolkit.git#claude-woocommerce-toolkit--v1.0.0 "
+            "https://github.com/slash1andy/agentic-woocommerce-and-wordpress-toolkit.git#claude-woocommerce-toolkit--v1.1.0 "
             "--scope project",
             combined,
         )
@@ -295,8 +295,8 @@ class ValidateRepositoryTest(unittest.TestCase):
             path = repo / ".claude-plugin/plugin.json"
             path.write_text(
                 path.read_text(encoding="utf-8").replace(
-                    '"version": "1.0.0",',
-                    '"version": "1.0.0",\n  "version": "1.0.0",',
+                    '"version": "1.1.0",',
+                    '"version": "1.1.0",\n  "version": "1.1.0",',
                     1,
                 ),
                 encoding="utf-8",

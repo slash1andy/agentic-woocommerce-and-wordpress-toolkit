@@ -56,6 +56,14 @@ class ReleaseContractsTest(unittest.TestCase):
         ):
             self.assertNotIn(stale, corpora["woocommerce-plugin-dev"])
         self.assertIn("repository", corpora["woocommerce-plugin-dev"].lower())
+        plugin_dev = read(ROOT / "skills/woocommerce-plugin-dev/SKILL.md")
+        self.assertIn("never substitute pasted", plugin_dev)
+        self.assertIn("shared core API usage", plugin_dev)
+        self.assertIn("Do not add PHPUnit", plugin_dev)
+        self.assertIn("do not replace domain validation", plugin_dev)
+        self.assertIn("Do not add an HPOS compatibility declaration", plugin_dev)
+        self.assertIn("Declare the response schema", plugin_dev)
+        self.assertIn("read `references/abilities-and-mcp.md`", plugin_dev)
         for marker in ("read-only", "Does not edit", "/code-review"):
             self.assertIn(marker, corpora["woocommerce-finalize"])
         for marker in (
@@ -66,6 +74,10 @@ class ReleaseContractsTest(unittest.TestCase):
             "Does not invoke this skill",
         ):
             self.assertIn(marker, corpora["woocommerce-upgrade-safety"])
+        self.assertIn(
+            "route the work to the normal WooCommerce development path",
+            read(ROOT / "skills/woocommerce-upgrade-safety/SKILL.md"),
+        )
         self.assertGreaterEqual(evidence_cases, 3)
 
     def test_evaluation_status_is_truthful(self):
@@ -76,12 +88,18 @@ class ReleaseContractsTest(unittest.TestCase):
 
         self.assertIn("manual evaluation scenarios", readme.lower())
         self.assertNotIn("evaluation benchmarks", readme.lower())
-        self.assertIn("official `skill-creator` plugin", status)
-        self.assertIn("Claude Code 2.1.170", status)
-        self.assertIn("source discovery and invocation", status)
-        self.assertIn("have not been executed", normalized_status)
-        self.assertIn("with-skill/without-skill", status)
-        self.assertNotIn("response-level evaluation passed", combined.lower())
+        self.assertIn("Version 1.1.0 response evaluation", status)
+        self.assertIn("24 response runs total", status)
+        self.assertIn("zero response failures", status)
+        self.assertIn("Claude Pro session limit", normalized_status)
+        self.assertIn("8/8", status)
+        self.assertIn("one run per arm", normalized_status)
+        self.assertIn("not a variance benchmark", normalized_status)
+        self.assertIn("focused final-candidate", normalized_status)
+        self.assertIn("agentic-woocommerce-toolkit-1.1.0-evaluation-results.json", status)
+        self.assertIn("fa84d988150c87e7cdd524eddbf41a157e939345fa733ce597cbcf5b74e572e8", status)
+        self.assertIn("with-skill and one without-skill", status)
+        self.assertNotIn("full final-candidate", combined.lower())
         self.assertFalse(any(ROOT.rglob("benchmark.json")))
         self.assertFalse(any(ROOT.rglob("benchmark.md")))
 

@@ -32,6 +32,9 @@ accepted arguments, Woo feature declarations, supported platform/provider versio
 external API/payment behavior, package loading, or rollback/recovery. A small release can be high risk;
 a large label-only release can be low risk.
 
+If the requested change explicitly has none of those existing-installation risks, do not manufacture
+an upgrade audit; route the work to the normal WooCommerce development path.
+
 ## 1. Freeze the delta
 
 Identify the released and candidate artifacts/commits. Inventory changed production files, schema and

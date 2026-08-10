@@ -18,7 +18,9 @@ release actions.
 
 Each skill includes manual evaluation scenarios following the current `skill-creator` schema under
 its `evals/evals.json` path.
-These are unexecuted scenarios, not benchmark results; see [evaluation status](docs/evaluation-status.md).
+Version 1.1.0 includes one with-skill and one without-skill response run per scenario, plus a focused
+final-candidate REST recertification. These results are not variance benchmarks; see
+[evaluation status](docs/evaluation-status.md).
 
 ### UX agent
 
@@ -37,14 +39,14 @@ entry point for package, safety, link, evaluation fixture, and release contracts
 
 ## Install the native plugin
 
-After `claude-woocommerce-toolkit--v1.0.0` is published from the reviewed release commit, use Claude
+After `claude-woocommerce-toolkit--v1.1.0` is published from the reviewed release commit, use Claude
 Code 2.1.163 or later and install that tag for one project. Plugin components are scoped by the
 preserved `claude-woocommerce-toolkit` namespace, so standalone skills and agents keep their own identities.
 From a shell in the target project's root:
 
 ```bash
 set -eu
-claude plugin marketplace add https://github.com/slash1andy/agentic-woocommerce-and-wordpress-toolkit.git#claude-woocommerce-toolkit--v1.0.0 --scope project
+claude plugin marketplace add https://github.com/slash1andy/agentic-woocommerce-and-wordpress-toolkit.git#claude-woocommerce-toolkit--v1.1.0 --scope project
 claude plugin install claude-woocommerce-toolkit@claude-woocommerce-toolkit --scope project
 ```
 

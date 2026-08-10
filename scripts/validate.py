@@ -20,7 +20,7 @@ ROOT = Path(__file__).resolve().parents[1]
 PLUGIN = {
     "name": "claude-woocommerce-toolkit",
     "displayName": "Agentic WooCommerce and WordPress Toolkit",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "description": "Claude Code skills and a read-only UX agent for WordPress and WooCommerce plugin work.",
     "author": {
         "name": "Andrew Wikel",
@@ -120,8 +120,8 @@ PLACEHOLDER_HOSTS = {"example.com"}
 APPROVED_SHELL_BLOCKS = (
     ("CONTRIBUTING.md", "c9264fb5ad584850838eb5de08adb5e172452f22f63156cdbaea2a039fff3f8a"),
     ("CONTRIBUTING.md", "47d48673bd83bcad4dc329be292e23c82a62199393f604e8a14dfd25c43cd376"),
-    ("README.md", "6cfe175c954b1dc351e6fd583477797e606d5de9e8b0eaeb1822289c647d3830"),
-    ("docs/installation.md", "6cfe175c954b1dc351e6fd583477797e606d5de9e8b0eaeb1822289c647d3830"),
+    ("README.md", "576c2720e4075a69bfd09087bcfe6c346697f78de8bc3245e2497bf023ae7ca9"),
+    ("docs/installation.md", "576c2720e4075a69bfd09087bcfe6c346697f78de8bc3245e2497bf023ae7ca9"),
     ("docs/installation.md", "91235142eab660b5eac8301d51a6ab4eb59ff364c405308096081cfb8a52d346"),
     ("docs/installation.md", "31548d083332917a70917e77608758822e8115a47d4ba18eee7ea207e72ca3b2"),
     ("docs/release-checklist.md", "15a5006bd871d8b047937ea4b98c8cd052501869e773ff49952931617eaf6777"),
@@ -223,8 +223,8 @@ def validate_manifests(errors):
     marketplace = load_json(Path(".claude-plugin/marketplace.json"), errors)
 
     if isinstance(plugin, dict):
-        if plugin.get("version") != "1.0.0":
-            errors.append(".claude-plugin/plugin.json: version must be 1.0.0")
+        if plugin.get("version") != "1.1.0":
+            errors.append(".claude-plugin/plugin.json: version must be 1.1.0")
         if plugin != PLUGIN:
             errors.append(".claude-plugin/plugin.json: does not match the exact manifest contract")
     elif plugin is not None:
@@ -784,7 +784,7 @@ def validate_docs(errors):
                 texts[relative] = text
     combined = "\n".join(texts.values())
     required = (
-        "claude plugin marketplace add https://github.com/slash1andy/agentic-woocommerce-and-wordpress-toolkit.git#claude-woocommerce-toolkit--v1.0.0 --scope project",
+        "claude plugin marketplace add https://github.com/slash1andy/agentic-woocommerce-and-wordpress-toolkit.git#claude-woocommerce-toolkit--v1.1.0 --scope project",
         "claude plugin install claude-woocommerce-toolkit@claude-woocommerce-toolkit --scope project",
         "/reload-plugins",
         "PHP CLI",
