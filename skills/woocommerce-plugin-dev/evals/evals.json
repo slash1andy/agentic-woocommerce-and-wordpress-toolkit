@@ -28,12 +28,12 @@
         "Inspects the repository before adding files and follows its existing loading, namespace, dependency, and test conventions",
         "Presents the exact files and verification scope and does not write implementation code before explicit approval",
         "Keeps the existing main plugin header current with supported WordPress and WooCommerce requirements",
-        "Declares HPOS compatibility only when the implementation touches order storage and tests support the declaration",
+        "Does not add an HPOS declaration when the implementation does not touch order storage; otherwise declares compatibility only after tests support it",
         "Exercises claimed Classic and Blocks/Store API checkout paths with supported WooCommerce extension points and does not declare compatibility without tests",
         "Checks for WooCommerce dependency before loading plugin functionality",
         "Does not add Composer, PSR-4, PHPUnit, Playwright, or replacement scaffolding when the repository does not need it",
         "All user input handling includes sanitization (sanitize_text_field, absint, etc.)",
-        "Rendered HTML output uses context-appropriate escaping (esc_html, esc_attr, esc_url)",
+        "Any HTML rendered directly by the plugin uses context-appropriate escaping (esc_html, esc_attr, esc_url)",
         "Registers the shipping method using woocommerce_shipping_methods filter",
         "Creates a WooCommerce Settings integration for zone/rate configuration"
       ]
@@ -75,7 +75,7 @@
     },
     {
       "id": 5,
-      "prompt": "Proofread the customer-facing copy for my existing WooCommerce extension listing. Do not inspect or change plugin code, configuration, tests, or release files.",
+      "prompt": "Proofread this customer-facing copy for my existing WooCommerce extension listing: 'Our extension makes managing your store effortless, seamless, and powerful.' Do not inspect or change plugin code, configuration, tests, or release files.",
       "expected_output": "Does not invoke this skill for the near-neighbor copyediting request. Edits only the supplied prose in chat and does not begin plugin discovery, repository inspection, or implementation.",
       "files": [],
       "expectations": [
