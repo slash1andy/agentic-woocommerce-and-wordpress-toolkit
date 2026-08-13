@@ -37,6 +37,12 @@ packages those components as a project-scoped native Claude Code plugin, narrows
 mutating behavior, removes generic reviewer overlap, and adds a standard-library Python validation
 entry point for package, safety, link, evaluation fixture, and release contracts.
 
+## Use with Codex
+
+Use the separate Codex skills-only adapter when you need an isolated Codex session.
+See the [Codex adapter guide](docs/codex.md) for a disposable local setup and discovery check.
+This adapter is skills-only and continues to point to the same canonical `skills/` directory.
+
 ## Install the native plugin
 
 After `claude-woocommerce-toolkit--v1.1.0` is published from the reviewed release commit, use Claude

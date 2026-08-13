@@ -38,6 +38,29 @@ MARKETPLACE = {
     },
     "plugins": [{"name": "claude-woocommerce-toolkit", "source": "./"}],
 }
+CODEX_PLUGIN = {
+    "name": "agentic-woocommerce-toolkit",
+    "version": "1.1.0",
+    "description": "Approval-gated WooCommerce and WordPress skills for plugin development, release review, and upgrade safety.",
+    "author": {
+        "name": "Andrew Wikel",
+        "url": "https://github.com/slash1andy",
+    },
+    "repository": "https://github.com/slash1andy/agentic-woocommerce-and-wordpress-toolkit",
+    "license": "GPL-2.0-or-later",
+    "skills": "./skills/",
+}
+CODEX_MARKETPLACE = {
+    "name": "agentic-woocommerce-and-wordpress-toolkit",
+    "plugins": [
+        {
+            "name": "agentic-woocommerce-toolkit",
+            "source": {"source": "local", "path": "./"},
+            "policy": {"installation": "AVAILABLE"},
+            "category": "Developer tools",
+        }
+    ],
+}
 SKILLS = (
     "woocommerce-plugin-dev",
     "woocommerce-finalize",
@@ -49,6 +72,8 @@ PACKAGE_FILES = {
     for value in (
         ".claude-plugin/marketplace.json",
         ".claude-plugin/plugin.json",
+        ".codex-plugin/plugin.json",
+        ".agents/plugins/marketplace.json",
         "CONTRIBUTING.md",
         "LICENSE",
         "README.md",
@@ -59,6 +84,7 @@ PACKAGE_FILES = {
         "docs/installation.md",
         "docs/release-checklist.md",
         "scripts/validate.py",
+        "docs/codex.md",
         "skills/woocommerce-finalize/SKILL.md",
         "skills/woocommerce-finalize/evals/evals.json",
         "skills/woocommerce-finalize/evals/fixtures/checkout-payment-release.diff",
@@ -83,12 +109,14 @@ PACKAGE_FILES = {
         "tests/test_p0_contracts.py",
         "tests/test_release_contracts.py",
         "tests/test_validate.py",
+        "tests/test_codex_adapter.py",
     )
 }
 DOCS = (
     Path("README.md"),
     Path("docs/hermes-agent.md"),
     Path("docs/installation.md"),
+    Path("docs/codex.md"),
     Path("SECURITY.md"),
     Path("docs/evaluation-status.md"),
     Path("docs/release-checklist.md"),
@@ -145,6 +173,47 @@ CREDENTIAL_URL_KEYS = {
     "secret_key",
     "token",
 }
+
+
+CODEX_FORBIDDEN_MANIFEST_FIELDS = {"apps", "credentials", "hooks", "mcpServers"}
+
+
+def validate_local_repository_path(relative, value, errors):
+    if not isinstance(value, str):
+        errors.append(f"{relative}: expected a string path")
+        return
+    if "\u0000" in value:
+        errors.append(f"{relative}: path must not contain null bytes")
+        return
+    if (
+        "\\" in value
+        or ":" in value
+        or value.startswith("/")
+        or value.endswith("//")
+        or value is None
+    ):
+        errors.append(f"{relative}: path must be a safe relative repository path")
+        return
+    candidate = PurePosixPath(value)
+    if candidate.is_absolute() or ".." in candidate.parts:
+        errors.append(f"{relative}: path must stay within the repository root")
+        return
+    path = ROOT / value
+    if has_symlink_component(path):
+        errors.append(f"{relative}: path must not contain a symlink")
+        return
+    try:
+        path.resolve().relative_to(ROOT)
+    except (ValueError, OSError, RuntimeError):
+        errors.append(f"{relative}: path must not escape the repository root")
+
+
+def validate_codex_forbidden_fields(relative, manifest, errors):
+    if not isinstance(manifest, dict):
+        return
+    forbidden = sorted(CODEX_FORBIDDEN_MANIFEST_FIELDS.intersection(manifest))
+    if forbidden:
+        errors.append(f"{relative}: forbidden fields present: {', '.join(forbidden)}")
 
 
 class DuplicateKeyError(ValueError):
@@ -221,6 +290,8 @@ def load_json(relative, errors):
 def validate_manifests(errors):
     plugin = load_json(Path(".claude-plugin/plugin.json"), errors)
     marketplace = load_json(Path(".claude-plugin/marketplace.json"), errors)
+    codex_plugin = load_json(Path(".codex-plugin/plugin.json"), errors)
+    codex_marketplace = load_json(Path(".agents/plugins/marketplace.json"), errors)
 
     if isinstance(plugin, dict):
         if plugin.get("version") != "1.1.0":
@@ -242,12 +313,92 @@ def validate_manifests(errors):
     elif marketplace is not None:
         errors.append(".claude-plugin/marketplace.json: top level must be an object")
 
+    if isinstance(codex_plugin, dict):
+        if codex_plugin.get("version") != "1.1.0":
+            errors.append(".codex-plugin/plugin.json: version must be 1.1.0")
+        if codex_plugin.get("skills") != "./skills/":
+            errors.append(".codex-plugin/plugin.json: skills must be './skills/'")
+        else:
+            validate_local_repository_path(
+                ".codex-plugin/plugin.json: skills",
+                codex_plugin.get("skills"),
+                errors,
+            )
+        validate_codex_forbidden_fields(".codex-plugin/plugin.json", codex_plugin, errors)
+        if codex_plugin != CODEX_PLUGIN:
+            errors.append(".codex-plugin/plugin.json: does not match the exact manifest contract")
+    elif codex_plugin is not None:
+        errors.append(".codex-plugin/plugin.json: top level must be an object")
+
+    if isinstance(codex_marketplace, dict):
+        entries = codex_marketplace.get("plugins")
+        if "version" in codex_marketplace:
+            errors.append(".agents/plugins/marketplace.json: version must not be present")
+        validate_codex_forbidden_fields(
+            ".agents/plugins/marketplace.json", codex_marketplace, errors
+        )
+        if not isinstance(entries, list):
+            errors.append(".agents/plugins/marketplace.json: plugins must be a list")
+        else:
+            if len(entries) != 1:
+                errors.append(".agents/plugins/marketplace.json: exactly one plugin entry is required")
+            names = [entry.get("name") for entry in entries if isinstance(entry, dict)]
+            if len(set(names)) != len(names):
+                errors.append(".agents/plugins/marketplace.json: duplicate plugin entries are not allowed")
+            for index, entry in enumerate(entries):
+                if not isinstance(entry, dict):
+                    errors.append(
+                        f".agents/plugins/marketplace.json: plugin entry #{index} must be an object"
+                    )
+                    continue
+                validate_codex_forbidden_fields(
+                    f".agents/plugins/marketplace.json plugin entry #{index}",
+                    entry,
+                    errors,
+                )
+                if entry.get("name") != "agentic-woocommerce-toolkit":
+                    errors.append(
+                        ".agents/plugins/marketplace.json: plugin entry name must be agentic-woocommerce-toolkit"
+                    )
+                source = entry.get("source")
+                if not isinstance(source, dict):
+                    errors.append(
+                        f".agents/plugins/marketplace.json: plugin entry #{entry.get('name')} source must be an object"
+                    )
+                    continue
+                if source.get("source") != "local":
+                    errors.append(
+                        ".agents/plugins/marketplace.json: plugin source.source must be local"
+                    )
+                validate_local_repository_path(
+                    ".agents/plugins/marketplace.json: plugin source path",
+                    source.get("path"),
+                    errors,
+                )
+                policy = entry.get("policy", {})
+                if not isinstance(policy, dict) or policy.get("installation") != "AVAILABLE":
+                    errors.append(
+                        ".agents/plugins/marketplace.json: plugin policy.installation must be AVAILABLE"
+                    )
+                if entry.get("category") != "Developer tools":
+                    errors.append(
+                        ".agents/plugins/marketplace.json: plugin category must be 'Developer tools'"
+                    )
+        if codex_marketplace != CODEX_MARKETPLACE:
+            errors.append(
+                ".agents/plugins/marketplace.json: does not match the exact manifest contract"
+            )
+    elif codex_marketplace is not None:
+        errors.append(".agents/plugins/marketplace.json: top level must be an object")
+
 
 def validate_components(errors):
     entries = [
         path
         for path in ROOT.rglob("*")
         if ".git" not in path.parts
+        and ".hermes" not in path.parts
+        and "__pycache__" not in path.parts
     ]
     for path in entries:
         if path.is_symlink():
