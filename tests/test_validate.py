@@ -33,6 +33,29 @@ MARKETPLACE = {
     },
     "plugins": [{"name": "claude-woocommerce-toolkit", "source": "./"}],
 }
+CODEX_PLUGIN = {
+    "name": "agentic-woocommerce-toolkit",
+    "version": "1.1.0",
+    "description": "Approval-gated WooCommerce and WordPress skills for plugin development, release review, and upgrade safety.",
+    "author": {
+        "name": "Andrew Wikel",
+        "url": "https://github.com/slash1andy",
+    },
+    "repository": "https://github.com/slash1andy/agentic-woocommerce-and-wordpress-toolkit",
+    "license": "GPL-2.0-or-later",
+    "skills": "./skills/",
+}
+CODEX_MARKETPLACE = {
+    "name": "agentic-woocommerce-and-wordpress-toolkit",
+    "plugins": [
+        {
+            "name": "agentic-woocommerce-toolkit",
+            "source": {"source": "local", "path": "./"},
+            "policy": {"installation": "AVAILABLE"},
+            "category": "Developer tools",
+        }
+    ],
+}
 
 
 class ValidateRepositoryTest(unittest.TestCase):
@@ -61,6 +84,14 @@ class ValidateRepositoryTest(unittest.TestCase):
 
     def test_missing_manifest_or_component_fails(self):
         for relative in (".claude-plugin/plugin.json", "agents/woocommerce-ux-reviewer.md"):
+            with self.subTest(relative=relative):
+                result = self.run_after(
+                    lambda repo, path=relative: (repo / path).unlink(missing_ok=True)
+                )
+
+                self.assertNotEqual(0, result.returncode)
+                self.assertIn(relative, result.stderr)
+        for relative in (".codex-plugin/plugin.json", ".agents/plugins/marketplace.json"):
             with self.subTest(relative=relative):
                 result = self.run_after(
                     lambda repo, path=relative: (repo / path).unlink(missing_ok=True)
@@ -98,6 +129,59 @@ class ValidateRepositoryTest(unittest.TestCase):
 
                 self.assertNotEqual(0, result.returncode)
                 self.assertIn("version", result.stderr)
+
+    def test_codex_manifest_path_and_format_fails(self):
+        def wrong_skills_path(repo):
+            path = repo / ".codex-plugin/plugin.json"
+            data = json.loads(path.read_text(encoding="utf-8"))
+            data["skills"] = "skills/"
+            path.write_text(json.dumps(data), encoding="utf-8")
+
+        def malformed_marketplace_source_path(repo):
+            path = repo / ".agents/plugins/marketplace.json"
+            data = json.loads(path.read_text(encoding="utf-8"))
+            data["plugins"][0]["source"]["path"] = "../outside"
+            path.write_text(json.dumps(data), encoding="utf-8")
+
+        def duplicate_marketplace_entry(repo):
+            path = repo / ".agents/plugins/marketplace.json"
+            data = json.loads(path.read_text(encoding="utf-8"))
+            data["plugins"].append(dict(data["plugins"][0]))
+            path.write_text(json.dumps(data), encoding="utf-8")
+
+        for mutate in (wrong_skills_path, malformed_marketplace_source_path, duplicate_marketplace_entry):
+            with self.subTest(mutate=mutate.__name__):
+                result = self.run_after(mutate)
+                self.assertNotEqual(0, result.returncode)
+                self.assertRegex(
+                    result.stderr,
+                    r"skills must be './skills/'|exact manifest contract|duplicate plugin entries|path must not escape the repository root|path must be a safe relative repository path",
+                )
+
+    def test_codex_manifest_forbidden_fields_fail(self):
+        def forbidden_plugin_field(repo):
+            path = repo / ".codex-plugin/plugin.json"
+            data = json.loads(path.read_text(encoding="utf-8"))
+            data["mcpServers"] = {"stdio": "noop"}
+            path.write_text(json.dumps(data), encoding="utf-8")
+
+        def forbidden_credentials_field(repo):
+            path = repo / ".codex-plugin/plugin.json"
+            data = json.loads(path.read_text(encoding="utf-8"))
+            data["credentials"] = {"type": "api-key"}
+            path.write_text(json.dumps(data), encoding="utf-8")
+
+        def forbidden_marketplace_field(repo):
+            path = repo / ".agents/plugins/marketplace.json"
+            data = json.loads(path.read_text(encoding="utf-8"))
+            data["hooks"] = {}
+            path.write_text(json.dumps(data), encoding="utf-8")
+
+        for mutate in (forbidden_plugin_field, forbidden_marketplace_field, forbidden_credentials_field):
+            with self.subTest(mutate=mutate.__name__):
+                result = self.run_after(mutate)
+                self.assertNotEqual(0, result.returncode)
+                self.assertIn("forbidden fields", result.stderr)
 
     def test_unsafe_install_guidance_fails(self):
         for fence, command in (
@@ -238,6 +322,7 @@ class ValidateRepositoryTest(unittest.TestCase):
         self.assertIn("/reload-plugins", contributing)
         self.assertIn("/claude-woocommerce-toolkit:woocommerce-plugin-dev", contributing)
         self.assertIn("3 skills and 1 read-only UX agent", readme)
+        self.assertIn("docs/codex.md", readme)
         for text in (readme, docs):
             native_match = re.search(r"```bash\n(.*?)\n```", text, re.DOTALL)
             self.assertIsNotNone(native_match)

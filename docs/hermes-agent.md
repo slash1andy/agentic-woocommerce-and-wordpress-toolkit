@@ -1,6 +1,6 @@
 # Hermes Agent integration
 
-Hermes implements the Agent Skills standard and can load this repository's `skills/` directory directly. Keep the repository checkout as the reviewed source instead of copying individual skill folders.
+Hermes implements the Agent Skills standard and can load this repository's canonical `skills/` directory directly. Keep the repository checkout as the reviewed source instead of copying individual skill folders.
 
 ## Configure shared skill directories
 
@@ -16,6 +16,9 @@ skills:
 Hermes expands `~` and environment variables in these paths. A local skill under `~/.hermes/skills/` wins when it has the same name as an external skill. External directories are mutable when the Hermes process can write to them, so keep changes on a review branch and inspect the Git diff before publishing.
 
 The WordPress repository supplies routing, project triage, core APIs, Blocks, Playground, performance, and other platform skills. This toolkit adds WooCommerce implementation, finalization, upgrade safety, and UX review guidance. Use Hermes' explicit `/code-review` command for generic correctness review.
+
+Codex has a separate adapter path via `.codex-plugin`/`.agents/plugins/marketplace.json`; this guide remains the direct
+`skills/` loading path for Hermes.
 
 ## Verify discovery
 

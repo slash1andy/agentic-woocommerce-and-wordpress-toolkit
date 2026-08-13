@@ -11,6 +11,29 @@ SKILLS = (
     "woocommerce-finalize",
     "woocommerce-upgrade-safety",
 )
+CODEX_PLUGIN = {
+    "name": "agentic-woocommerce-toolkit",
+    "version": "1.1.0",
+    "description": "Approval-gated WooCommerce and WordPress skills for plugin development, release review, and upgrade safety.",
+    "author": {
+        "name": "Andrew Wikel",
+        "url": "https://github.com/slash1andy",
+    },
+    "repository": "https://github.com/slash1andy/agentic-woocommerce-and-wordpress-toolkit",
+    "license": "GPL-2.0-or-later",
+    "skills": "./skills/",
+}
+CODEX_MARKETPLACE = {
+    "name": "agentic-woocommerce-and-wordpress-toolkit",
+    "plugins": [
+        {
+            "name": "agentic-woocommerce-toolkit",
+            "source": {"source": "local", "path": "./"},
+            "policy": {"installation": "AVAILABLE"},
+            "category": "Developer tools",
+        }
+    ],
+}
 
 
 def read(path: Path) -> str:
@@ -79,6 +102,31 @@ class ReleaseContractsTest(unittest.TestCase):
             read(ROOT / "skills/woocommerce-upgrade-safety/SKILL.md"),
         )
         self.assertGreaterEqual(evidence_cases, 3)
+
+    def test_codex_adapter_is_documented_and_manifest_minimal(self):
+        codex_docs = read(ROOT / "docs/codex.md")
+        readme = read(ROOT / "README.md")
+        installation = read(ROOT / "docs/installation.md")
+        hermes = read(ROOT / "docs/hermes-agent.md")
+
+        self.assertIn("skills-only", codex_docs.lower())
+        self.assertIn("agentic-woocommerce-toolkit", codex_docs)
+        self.assertIn("local", codex_docs.lower())
+        self.assertIn("codex plugin marketplace add", codex_docs.lower())
+        self.assertIn("codex plugin list", codex_docs.lower())
+        self.assertIn("codex plugin add", codex_docs.lower())
+        self.assertIn("approval", codex_docs.lower())
+        self.assertIn("## Use with Codex", readme)
+        self.assertIn("docs/codex.md", readme)
+        self.assertIn("skills directory", installation.lower())
+        self.assertIn("canonical", hermes.lower())
+        self.assertIn("canonical", installation.lower())
+        self.assertIn("skills/", installation.lower())
+        codex_plugin = json.loads(read(ROOT / ".codex-plugin/plugin.json"))
+        codex_marketplace = json.loads(read(ROOT / ".agents/plugins/marketplace.json"))
+        self.assertEqual(CODEX_PLUGIN, codex_plugin)
+        self.assertEqual(CODEX_MARKETPLACE, codex_marketplace)
+        self.assertNotIn("woocommerce-ux-reviewer", codex_docs)
 
     def test_evaluation_status_is_truthful(self):
         readme = read(ROOT / "README.md")

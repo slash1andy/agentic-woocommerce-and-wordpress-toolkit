@@ -73,3 +73,10 @@ python3 -B scripts/validate.py --check-urls
 ```
 
 A future release should be installed only after its tag and contents receive the same review and validation. Do not update an installation from a mutable checkout.
+
+## Use with Codex
+
+The repository exposes the same three canonical skills directory from `skills/` through a dedicated
+skills-only Codex adapter. See the [Codex adapter guide](codex.md) for a disposable
+local `CODEX_HOME` probe using `codex plugin marketplace add`, `codex plugin list`, and
+`codex plugin add` before any Codex-driven workflow.
