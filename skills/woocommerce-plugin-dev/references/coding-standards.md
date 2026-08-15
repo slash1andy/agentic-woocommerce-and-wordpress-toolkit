@@ -8,6 +8,7 @@ tooling. Do not paste a generic WPCS setup into an established project.
 - WordPress Coding Standards: https://developer.wordpress.org/coding-standards/
 - WordPress PHP Standards: https://developer.wordpress.org/coding-standards/wordpress-coding-standards/php/
 - WooCommerce Coding Standards: https://developer.woocommerce.com/docs/best-practices/coding-standards/
+- WPCS 3.4.0 release: https://github.com/WordPress/WordPress-Coding-Standards/releases/tag/3.4.0
 
 ## Repository-first rules
 
@@ -21,6 +22,14 @@ tooling. Do not paste a generic WPCS setup into an established project.
   arrays, types, and documentation unless an applicable official rule or failing configured check
   requires a focused change.
 - Keep changes consistent with adjacent maintained code; avoid formatting unrelated files.
+
+## WPCS / PHPCS updates
+
+Before adding or upgrading WPCS, inspect `composer.json`, `composer.lock`, `phpcs.xml*`, and the canonical lint script. Record the installed WPCS, PHP_CodeSniffer, PHPCSUtils, and supported WordPress version. Do not upgrade a repository's lint dependencies or run a broad `phpcbf` pass by default.
+
+For WPCS 3.4.0, PHP_CodeSniffer must be >=3.13.5 and PHPCSUtils >=1.2.2. Its default `minimum_wp_version` is 6.7, so set that property explicitly whenever the repository supports an older WordPress version. If configured, replace the deprecated `WordPress.Arrays.ArrayDeclarationSpacing` property `allow_single_item_single_line_associative_arrays` with `allow_single_item_single_line_explicit_key_arrays`; this is a name-only migration. `WordPress.PHP.NoSilencedErrors` no longer permits `@parse_url()`: make failure handling explicit and test the affected behavior rather than suppressing the diagnostic.
+
+Run the configured PHPCS command and `vendor/bin/phpcs -i` after a tooling update. Classify new findings by supported version and real behavior. A lint pass does not establish security, checkout, database, or runtime correctness.
 
 ## Names and documentation
 
