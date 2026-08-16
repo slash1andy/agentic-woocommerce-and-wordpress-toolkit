@@ -1,7 +1,7 @@
 # Installation guide
 
 Install the toolkit as a project-scoped native Claude Code plugin under the preserved
-`claude-woocommerce-toolkit` plugin namespace. Use the reviewed `claude-woocommerce-toolkit--v1.1.0` release commit after that tag
+`claude-woocommerce-toolkit` plugin namespace. Use the reviewed `claude-woocommerce-toolkit--v1.1.1` release commit after that tag
 is published at the release gate. The plugin installs all 3 skills, one read-only UX agent, shared
 references, evals, manifests, and the repository validator together.
 
@@ -22,13 +22,13 @@ project scope:
 
 ```bash
 set -eu
-claude plugin marketplace add https://github.com/slash1andy/agentic-woocommerce-and-wordpress-toolkit.git#claude-woocommerce-toolkit--v1.1.0 --scope project
+claude plugin marketplace add https://github.com/slash1andy/agentic-woocommerce-and-wordpress-toolkit.git#claude-woocommerce-toolkit--v1.1.1 --scope project
 claude plugin install claude-woocommerce-toolkit@claude-woocommerce-toolkit --scope project
 ```
 
 The commands write the marketplace source and enabled plugin to the target repository's
 `.claude/settings.json`. Collaborators review and accept those entries when they trust the project.
-The marketplace source is pinned to `claude-woocommerce-toolkit--v1.1.0`; do not replace it with a mutable branch. Start Claude
+The marketplace source is pinned to `claude-woocommerce-toolkit--v1.1.1`; do not replace it with a mutable branch. Start Claude
 Code from the project root and run `/reload-plugins` after installation.
 
 ## 2. Verify the installation

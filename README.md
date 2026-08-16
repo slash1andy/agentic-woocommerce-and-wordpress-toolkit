@@ -45,14 +45,14 @@ This adapter is skills-only and continues to point to the same canonical `skills
 
 ## Install the native plugin
 
-After `claude-woocommerce-toolkit--v1.1.0` is published from the reviewed release commit, use Claude
+After `claude-woocommerce-toolkit--v1.1.1` is published from the reviewed release commit, use Claude
 Code 2.1.163 or later and install that tag for one project. Plugin components are scoped by the
 preserved `claude-woocommerce-toolkit` namespace, so standalone skills and agents keep their own identities.
 From a shell in the target project's root:
 
 ```bash
 set -eu
-claude plugin marketplace add https://github.com/slash1andy/agentic-woocommerce-and-wordpress-toolkit.git#claude-woocommerce-toolkit--v1.1.0 --scope project
+claude plugin marketplace add https://github.com/slash1andy/agentic-woocommerce-and-wordpress-toolkit.git#claude-woocommerce-toolkit--v1.1.1 --scope project
 claude plugin install claude-woocommerce-toolkit@claude-woocommerce-toolkit --scope project
 ```
 
