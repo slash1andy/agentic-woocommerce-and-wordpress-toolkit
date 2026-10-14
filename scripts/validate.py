@@ -67,9 +67,15 @@ SKILLS = (
     "woocommerce-upgrade-safety",
 )
 AGENTS = ("woocommerce-ux-reviewer",)
+DEVELOPMENT_ONLY_FILES = {Path(".hermes/plans/2026-08-13_112812-codex-adapter.md")}
+CODEX_POLICY_LINES = ["policy:", "  allow_implicit_invocation: false"]
 PACKAGE_FILES = {
     Path(value)
     for value in (
+        ".hermes/plans/2026-08-13_112812-codex-adapter.md",
+        "skills/woocommerce-plugin-dev/agents/openai.yaml",
+        "skills/woocommerce-finalize/agents/openai.yaml",
+        "skills/woocommerce-upgrade-safety/agents/openai.yaml",
         ".claude-plugin/marketplace.json",
         ".claude-plugin/plugin.json",
         ".codex-plugin/plugin.json",
@@ -82,11 +88,14 @@ PACKAGE_FILES = {
         "docs/evaluation-status.md",
         "docs/hermes-agent.md",
         "docs/installation.md",
+        "docs/maintenance-and-evaluation.md",
         "docs/release-checklist.md",
+        "scripts/evaluate.py",
         "scripts/validate.py",
         "docs/codex.md",
         "skills/woocommerce-finalize/SKILL.md",
         "skills/woocommerce-finalize/evals/evals.json",
+        "skills/woocommerce-finalize/evals/fixtures/checkout-payment-clean-control.diff",
         "skills/woocommerce-finalize/evals/fixtures/checkout-payment-release.diff",
         "skills/woocommerce-plugin-dev/SKILL.md",
         "skills/woocommerce-plugin-dev/evals/evals.json",
@@ -106,7 +115,9 @@ PACKAGE_FILES = {
         "skills/woocommerce-upgrade-safety/SKILL.md",
         "skills/woocommerce-upgrade-safety/evals/evals.json",
         "skills/woocommerce-upgrade-safety/evals/fixtures/offset-migration.php",
+        "tests/test_evaluation.py",
         "tests/test_p0_contracts.py",
+        "tests/test_platform_contracts.py",
         "tests/test_release_contracts.py",
         "tests/test_validate.py",
         "tests/test_codex_adapter.py",
@@ -120,6 +131,7 @@ DOCS = (
     Path("SECURITY.md"),
     Path("docs/evaluation-status.md"),
     Path("docs/release-checklist.md"),
+    Path("docs/maintenance-and-evaluation.md"),
 )
 INSTALL_DOCS = DOCS[:2]
 PROVENANCE = (
@@ -275,7 +287,13 @@ def load_json(relative, errors):
         return None
     try:
         text = read_text(path, errors)
-        return json.loads(text, object_pairs_hook=unique_object) if text is not None else None
+        if text is None:
+            return None
+        data = json.loads(text, object_pairs_hook=unique_object)
+        if not isinstance(data, dict):
+            errors.append(f"{relative}: top level must be an object")
+            return None
+        return data
     except FileNotFoundError:
         errors.append(f"{relative}: missing")
     except DuplicateKeyError as exc:
@@ -342,7 +360,11 @@ def validate_manifests(errors):
         else:
             if len(entries) != 1:
                 errors.append(".agents/plugins/marketplace.json: exactly one plugin entry is required")
-            names = [entry.get("name") for entry in entries if isinstance(entry, dict)]
+            names = [
+                entry["name"]
+                for entry in entries
+                if isinstance(entry, dict) and isinstance(entry.get("name"), str)
+            ]
             if len(set(names)) != len(names):
                 errors.append(".agents/plugins/marketplace.json: duplicate plugin entries are not allowed")
             for index, entry in enumerate(entries):
@@ -396,9 +418,7 @@ def validate_components(errors):
     entries = [
         path
         for path in ROOT.rglob("*")
-        if ".git" not in path.parts
-        and ".hermes" not in path.parts
-        and "__pycache__" not in path.parts
+        if not {".git", "__pycache__"}.intersection(path.relative_to(ROOT).parts)
     ]
     for path in entries:
         if path.is_symlink():
@@ -458,12 +478,29 @@ def validate_components(errors):
         )
     for name in AGENTS:
         validate_frontmatter(Path("agents") / f"{name}.md", name, errors)
+    for name in SKILLS:
+        validate_codex_policy(Path("skills") / name / "agents/openai.yaml", errors)
+
+
+def validate_codex_policy(relative, errors):
+    path = ROOT / relative
+    if not path.is_file() or has_symlink_component(path):
+        return
+    text = read_text(path, errors)
+    if text is not None and text.splitlines() != CODEX_POLICY_LINES:
+        errors.append(
+            f"{relative}: must contain exactly the two-line policy with "
+            "allow_implicit_invocation: false"
+        )
 
 
 def strip_yaml_comment(value):
     quote = None
     escaped = False
     index = 0
+    if value[:1] in {"\"", "'"}:
+        quote = value[0]
+        index = 1
     while index < len(value):
         char = value[index]
         if quote == '"':
@@ -478,11 +515,8 @@ def strip_yaml_comment(value):
                 index += 2
                 continue
             quote = None
-        elif quote is None:
-            if char in {"\"", "'"}:
-                quote = char
-            elif char == "#" and (index == 0 or value[index - 1].isspace()):
-                return value[:index].rstrip()
+        elif quote is None and char == "#" and (index == 0 or value[index - 1].isspace()):
+            return value[:index].rstrip()
         index += 1
     return value.rstrip()
 
@@ -535,11 +569,28 @@ def validate_frontmatter(relative, expected_name, errors, require_explicit=False
         value = strip_yaml_comment((raw_value or "").strip())
         if re.fullmatch(r"[>|](?:(?:[+-][1-9]?)|(?:[1-9][+-]?))?", value):
             block = []
+            explicit_indent = re.search(r"[1-9]", value)
+            block_indent = int(explicit_indent.group()) if explicit_indent else None
+            underflow = False
+            max_blank = 0
             index += 1
             while index < closing and (not lines[index].strip() or lines[index][:1].isspace()):
-                if lines[index].startswith("\t"):
+                line = lines[index]
+                if line.startswith("\t"):
                     errors.append(f"{relative}: malformed frontmatter block {key}")
-                block.append(lines[index].strip())
+                elif line.strip():
+                    leading = len(line) - len(line.lstrip(" "))
+                    if block_indent is None:
+                        block_indent = leading
+                        if max_blank > leading:
+                            underflow = True
+                            errors.append(f"{relative}: malformed frontmatter block {key}")
+                    elif leading < block_indent and not underflow:
+                        underflow = True
+                        errors.append(f"{relative}: malformed frontmatter block {key}")
+                elif block_indent is None:
+                    max_blank = max(max_blank, len(line) - len(line.lstrip(" ")))
+                block.append(line.strip())
                 index += 1
             if not any(block):
                 errors.append(f"{relative}: empty frontmatter block {key}")
@@ -898,6 +949,7 @@ def validate_evals(errors):
 
 def validate_cross_references(errors):
     route_pattern = re.compile(r"\$\{CLAUDE_SKILL_DIR\}(/[A-Za-z0-9_./-]+)")
+    relative_pattern = re.compile(r"(?<![A-Za-z0-9_./${}-])(\.\./[A-Za-z0-9_][A-Za-z0-9_./-]*)")
     route_count = 0
     root = ROOT.resolve()
     for name in SKILLS:
@@ -908,7 +960,11 @@ def validate_cross_references(errors):
         text = read_text(path, errors)
         if text is None:
             continue
-        for route in route_pattern.findall(text):
+        routes = route_pattern.findall(text)
+        portable = relative_pattern.findall(route_pattern.sub("", text))
+        if name != "woocommerce-plugin-dev" and not portable:
+            errors.append(f"{relative}: missing portable relative reference route")
+        for route in [*routes, *(f"/{item}" for item in portable)]:
             route_count += 1
             source_target = path.parent / route.lstrip("/")
             target = source_target.resolve()
@@ -922,7 +978,7 @@ def validate_cross_references(errors):
             elif not target.is_file():
                 errors.append(f"{relative}: broken cross-reference: {route}")
     if not route_count:
-        errors.append("skills: no ${CLAUDE_SKILL_DIR} cross-reference routes found")
+        errors.append("skills: no cross-reference routes found")
 
 
 def validate_docs(errors):
@@ -956,7 +1012,7 @@ def validate_docs(errors):
     unsafe = False
     package_markdown = []
     for relative in sorted(PACKAGE_FILES):
-        if relative.suffix != ".md":
+        if relative.suffix != ".md" or relative in DEVELOPMENT_ONLY_FILES:
             continue
         path = ROOT / relative
         if path.is_file() and not path.is_symlink():
@@ -1015,7 +1071,7 @@ def validate_docs(errors):
     for path in ROOT.rglob("*"):
         if (
             path.suffix not in {".md", ".json"}
-            or ".git" in path.parts
+            or ".git" in path.relative_to(ROOT).parts
             or not path.is_file()
             or path.is_symlink()
         ):
@@ -1072,7 +1128,7 @@ def validate_public_hygiene(errors):
             if match:
                 line_number = text.count("\n", 0, match.start()) + 1
                 errors.append(f"{relative}:{line_number}: {finding}")
-        if path.suffix != ".md":
+        if path.suffix != ".md" or relative in DEVELOPMENT_ONLY_FILES:
             continue
 
         markdown_targets = [bracketed or plain for bracketed, plain in link_pattern.findall(text)]
@@ -1193,7 +1249,7 @@ def official_urls(errors):
     found = set()
     pattern = re.compile(r"https?://[^\s<>\]`\"']+", re.IGNORECASE)
     for relative in sorted(PACKAGE_FILES):
-        if relative.suffix not in {".md", ".json", ".php", ".diff"}:
+        if relative.suffix not in {".md", ".json", ".php", ".diff"} or relative in DEVELOPMENT_ONLY_FILES:
             continue
         path = ROOT / relative
         if not path.is_file() or path.is_symlink():

@@ -11,7 +11,12 @@
       "expectations": [
         "Inspects the attached synthetic diff and only the configured repository evidence needed to interpret it before making claims",
         "Traces each changed Woo path from entry point through authorization, business logic, persistence or side effect, and runtime readback",
-        "Keeps the audit read-only and marks missing or stale evidence unverified"
+        "Keeps the audit read-only and marks missing or stale evidence unverified",
+        "Grader oracle, planted defect 1 of 4: reports that the woocommerce_api_fixture_gateway callback handle_callback reads order_id from POST with no signature or authentication check and moves the order to processing",
+        "Grader oracle, planted defect 2 of 4: reports that confirm_checkout calls payment_complete with no provider proof and no amount or currency verification",
+        "Grader oracle, planted defect 3 of 4: reports that neither path has a replay, idempotency, or duplicate-delivery guard",
+        "Grader oracle, planted defect 4 of 4: reports that the only test covers the 404 missing-order path, so authorization, amount, currency, and replay behavior have no test",
+        "Scoring is separate from presentation and scope compliance: recall is planted defects found out of 4, false positives are findings that name behavior absent from the diff, and each incorrect verified claim is counted on its own"
       ]
     },
     {
@@ -34,7 +39,22 @@
       "expectations": [
         "Separates verified, broken, suspicious, and unverified paths using file and line evidence",
         "Does not declare Classic, Blocks, Store API, or HPOS support beyond the attached implementation and tests",
-        "Leaves any correction for a separately approved write scope"
+        "Leaves any correction for a separately approved write scope",
+        "Grader oracle: marks the callback signature check, payment_complete amount and currency verification, and replay guard as broken or unverified, never verified, and counts any incorrect verified claim separately from recall and false positives"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Before release, audit the attached synthetic webhook diff through order payment completion. It is a control with a stated boundary of one synthetic PHP process, two-decimal currencies, and integer minor units. Report release blockers in chat; do not fix anything.",
+      "expected_output": "Performs the same read-only traceability audit and reports no release blockers and no findings within the stated single-process boundary, because the diff verifies an HMAC signature over the raw body, denies unknown orders and mismatched amount, currency, or status, and gives a repeated delivery no second commerce effect. Notes that concurrent or distributed replay safety, real provider behavior, and Classic, Blocks, and HPOS support are outside the boundary and unverified, makes no positive verified claim for them, and does not invent or fabricate defects to appear thorough. A control run fails on any invented blocker, which is counted as a false positive.",
+      "files": [
+        "evals/fixtures/checkout-payment-clean-control.diff"
+      ],
+      "expectations": [
+        "Reports no release blockers within the stated boundary and counts any invented blocker as a false positive",
+        "Cites the raw-body HMAC check, the amount, currency, and status denials, and the repeated-delivery test as the evidence for that result",
+        "Marks concurrent or distributed replay safety, real provider behavior, and Classic, Blocks, or HPOS support as outside scope and unverified, with no positive verified claim for them",
+        "Does not invent or fabricate findings, does not edit files, and does not run code or call providers"
       ]
     }
   ]

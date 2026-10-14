@@ -44,6 +44,19 @@
         "Recognizes that the request lacks an upgrade-risk surface",
         "Does not manufacture migration, rollback, payment, or Subscriptions requirements"
       ]
+    },
+    {
+      "id": 5,
+      "prompt": "Review our plugin's upgrade for stores moving to WooCommerce 11.2. No source is attached, so work from this description. The plugin calls the wc/agentic/v1 routes for agent checkout, relies on a table named wc_email_unsubscribes for abandoned-cart recovery, runs a headless client that keeps using its stored Cart-Token and creates a fresh cart whenever a response has no Cart-Token header, and filters orders with a date-only string such as 2026-07-20 on both HPOS and legacy post storage. Report continuity risks in chat only.",
+      "expected_output": "Performs a read-only, version-scoped upgrade review in chat. States that wc/agentic/v1 and abandoned cart recovery were removed in 11.2 with no replacement endpoint, that the 11.2 database update cancels queued recovery actions and drops wc_email_unsubscribes, that a missing Cart-Token or Cart-Hash on a cart-session failure means the cart is unavailable and the client must fail closed instead of creating a new cart, and that the release notes state date-only strings are read in the store timezone for products in every store and for order queries only in stores keeping orders as posts (legacy post storage). HPOS interpretation stays unverified until a versioned source or applicable boundary tests establish it, so HPOS and legacy storage need separate boundary tests. Does not invent a replacement endpoint, does not run anything, and does not raise a global minimum version.",
+      "files": [],
+      "expectations": [
+        "States that wc/agentic/v1 has no replacement endpoint and does not invent one",
+        "Reports the canceled recovery actions and dropped wc_email_unsubscribes table as recovery consequences",
+        "Requires that a response with a missing Cart-Token be treated as an unavailable cart and fail closed rather than creating a new cart",
+        "Scopes the store-timezone date-only change to products in every store and orders in legacy post storage, keeps HPOS interpretation unverified until a versioned source or applicable boundary tests, and requires separate HPOS and legacy boundary tests",
+        "Does not raise a global minimum WordPress or WooCommerce version and does not run migrations or mutate data"
+      ]
     }
   ]
 }

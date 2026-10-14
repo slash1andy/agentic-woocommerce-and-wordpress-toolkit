@@ -10,6 +10,8 @@ disable-model-invocation: true
 
 This skill owns Woo traceability and code health immediately before release. Generic correctness belongs in `/code-review`;
 security and UX belong in their dedicated reviews. Do not duplicate those scopes.
+When asked for generic correctness, refer the request to `/code-review`, and route security and UX to their
+dedicated reviews, even when the plugin or diff input is missing. Do not offer to perform that generic work yourself.
 
 ## Audit boundary
 
@@ -23,10 +25,13 @@ the exact scope.
 
 Read only the portions relevant to the changed surface:
 
-- **`${CLAUDE_SKILL_DIR}/../woocommerce-plugin-dev/references/coding-standards.md`** -- project conventions and global identifiers
-- **`${CLAUDE_SKILL_DIR}/../woocommerce-plugin-dev/references/security.md`** -- trust-boundary context for trace paths
-- **`${CLAUDE_SKILL_DIR}/../woocommerce-plugin-dev/references/woocommerce-apis.md`** -- HPOS, CRUD, Store API, and payments
-- **`${CLAUDE_SKILL_DIR}/../woocommerce-plugin-dev/references/ux-guidelines.md`** -- actual merchant/shopper surfaces
+Each reference has a portable path relative to this skill's directory. Claude Code also expands the
+`${CLAUDE_SKILL_DIR}` form of the same path.
+
+- **`../woocommerce-plugin-dev/references/coding-standards.md`** (Claude: `${CLAUDE_SKILL_DIR}/../woocommerce-plugin-dev/references/coding-standards.md`) -- project conventions and global identifiers
+- **`../woocommerce-plugin-dev/references/security.md`** (Claude: `${CLAUDE_SKILL_DIR}/../woocommerce-plugin-dev/references/security.md`) -- trust-boundary context for trace paths
+- **`../woocommerce-plugin-dev/references/woocommerce-apis.md`** (Claude: `${CLAUDE_SKILL_DIR}/../woocommerce-plugin-dev/references/woocommerce-apis.md`) -- HPOS, CRUD, Store API, and payments
+- **`../woocommerce-plugin-dev/references/ux-guidelines.md`** (Claude: `${CLAUDE_SKILL_DIR}/../woocommerce-plugin-dev/references/ux-guidelines.md`) -- actual merchant/shopper surfaces
 
 ## 1. Establish evidence
 
@@ -76,7 +81,96 @@ For payment plugins, trace applicable payment, refund, saved-token, webhook, and
 where idempotency, provider outcome, order transition, customer feedback, and reconciliation evidence
 meet. Do not call live providers during this read-only review.
 
-Classify each path as verified, broken, suspicious, or unverified and cite file/line plus evidence.
+Trace every mutation entrypoint separately: each REST route, webhook, callback, return URL, admin action,
+and scheduled job needs the authorization, validation, and side-effect protections its actual contract
+requires. Each payment-affecting entrypoint also needs its own provider confirmation or order binding,
+amount and currency comparison against the order, and replay or duplicate check, where applicable to that
+path. Do not require order or provider fields, amount and currency checks, or replay protection for
+settings or product mutations that are not payment-affecting. A guard on one entrypoint does not cover
+another, and a default status guard does not supply provider authentication or complete idempotency.
+
+An absent nonce or capability check on an external provider callback is often inappropriate, because the
+provider is not a logged-in browser user, and that is not the same as technically impossible: do not report it
+as a defect or as impossible on that basis alone. Require real provider callback authentication (signature,
+secret, or provider-side verification of the payment); a browser nonce is never an acceptable substitute for it.
+
+A missing explicit callback response does not establish that the provider cannot retry; retry semantics stay
+unknown until you require actual provider contract or outcome evidence. Trace the actual REST response
+construction and the readback getter independently of unverified core side effects. A negative claim that
+the evidence supports is still permitted.
+
+Do not assert core commerce side effects, such as what `payment_complete()` does to a refunded, paid, or
+other status, from memory. Source-trace each entrypoint to see whether it actually calls
+`payment_complete()`; do not claim a callback invokes it unless that entrypoint does. An authorized caller,
+or any caller of an unauthenticated callback that reaches the call, can invoke the method, so reaching the
+call does not establish that the order is paid. Provider confirmation and order binding verify the payment,
+not the resulting Woo state, so provider evidence alone cannot verify the paid status. Treat a status
+transition or replay outcome as source-proven only when you read the versioned core source for the
+installed release or have a matching runtime readback; otherwise label it unverified. Never present a
+guessed or inferred or assumed behavior as verified.
+
+Treat every claimed absent side effect (order notes, stock changes, emails, hooks) the same way: core
+methods such as `update_status()` or `payment_complete()` may add audit notes, adjust stock, or fire
+hooks natively, so a missing explicit call in the extension is not a defect. Inspect the exact installed
+core source and delegates before reporting it; otherwise mark it unverified, not a defect.
+
+Qualify every failure-mode and impact statement by what the evidence shows. The absence of explicit order
+notes in the extension does not prove core adds none, because `payment_complete()` may add notes natively:
+label core notes unverified until the installed source is read, and do not state the missing notes as an
+impact.
+
+Distinguish observed from tested compatibility. Using WooCommerce CRUD APIs is an observed
+implementation fact; HPOS compatibility is verified only by a run on HPOS and legacy storage. Without
+that run, say "uses CRUD APIs; HPOS behavior untested", never "HPOS-safe by construction".
+
+For diff-only reviews, when file and line evidence is required and the supplied numbered diff shows it,
+cite the actual diff file and line or range; destination symbols and hunk positions supplement those
+anchors, not replace them. When numbers are unavailable, cite the exact symbol or hunk, mark line
+precision unavailable, and never invent or fabricate postimage line numbers or file lines that the diff
+does not show. When no defect is found, say so and do not manufacture findings.
+
+State the review boundary. A synthetic fixture or single-process test does not prove a provider,
+distributed replay, Classic, Blocks, or HPOS path; list each as excluded, out of scope, or not verified
+rather than implying coverage.
+
+Resolve every constructor, class, and function along a traced path through its PHP namespace and `use`
+imports. An unqualified class or constructor name inside a namespace resolves to that namespace, so a call
+such as `new WP_Error` without a leading backslash or import is a broken constructor when the resolved
+namespaced class does not exist, even though the global WordPress class exists. Verify the actual namespace,
+class definitions, and imports before alleging failure, because a local namespaced `WP_Error` class may exist.
+An unqualified function call falls back to the global function when no namespaced function of that name
+exists, so do not flag it as unresolved; report a broken function path only with source evidence that the
+call actually fails to resolve. A literal error code or status such as 404 is not a reachable response when
+the constructor or branch that emits it is broken.
+Before finalizing, reconcile every verified cell in your path table with each blocker you found: a path
+that depends on a broken branch is broken or suspicious, never verified. External or core side effects,
+such as payment replay or status effects, stay unverified unless versioned source or run evidence is cited.
+
+Reading test assertions does not prove the tests pass; report a test as passing only from run evidence.
+When installed source is absent, migration and external-contract inventories are unknown, not empty.
+
+For pagination or concurrency claims, give an explicit interleaving trace. Insertion overlap alone does not
+prove a skipped record, and duplicate processing of the current page does not prove a duplicate on a later
+page; distinguish each outcome with its own trace.
+
+Claims about what core order save does, including webhook delivery or date fields, need versioned source
+for the installed release or run evidence. Do not state them unconditionally or without that evidence.
+
+For each mutation entrypoint, map its authorization to negative unauthorized cases. For each applicable
+payment-affecting entrypoint, also map provider confirmation to invalid provider proof, amount and currency
+checks to their respective mismatch cases, and replay protection to repeated-delivery cases. Inspect the
+actual test coverage and run evidence, then classify each case as passing, absent, failing, broken, skipped, or unverified. Call a case passing and verified
+only when a relevant test with correct assertions has applicable passing run evidence, and state the
+scope it actually covers (entrypoint, case, and environment); passing evidence does not extend beyond that
+scope. A case with no test evidence is a gap only after that inspection.
+
+A missing guard in the implementation is a code finding, not proof of missing coverage: do not infer absent
+coverage from it. A 404 test cannot establish any of these safeguards, so a test that covers only the
+404 missing-order path leaves them unproven, but a broken 404 test alone is not evidence that other relevant
+tests are absent.
+
+Classify each path as verified, broken, suspicious, or unverified and cite file/line (or diff position
+for diff-only reviews) plus evidence.
 
 ## 4. Present findings
 

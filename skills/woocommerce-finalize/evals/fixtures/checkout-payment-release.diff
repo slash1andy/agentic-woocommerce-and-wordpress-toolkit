@@ -19,7 +19,7 @@ new file mode 100644
 +    public static function confirm_checkout($request) {
 +        $order = wc_get_order(absint($request['order_id']));
 +        if (! $order) {
-+            return new WP_Error('missing_order', 'Order not found.', array('status' => 404));
++            return new \WP_Error('missing_order', 'Order not found.', array('status' => 404));
 +        }
 +        $order->payment_complete();
 +        return rest_ensure_response(array('status' => $order->get_status()));
@@ -40,7 +40,7 @@ new file mode 100644
 +<?php
 +final class CheckoutGatewayTest extends WP_UnitTestCase {
 +    public function test_missing_order_returns_404(): void {
-+        $response = FixtureCommerce\\CheckoutGateway::confirm_checkout(array('order_id' => 999));
++        $response = FixtureCommerce\CheckoutGateway::confirm_checkout(array('order_id' => 999));
 +        $this->assertWPError($response);
 +        $this->assertSame(404, $response->get_error_data()['status']);
 +    }

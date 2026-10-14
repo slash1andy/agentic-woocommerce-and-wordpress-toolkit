@@ -1,3 +1,4 @@
+import inspect
 import json
 import re
 import os
@@ -14,6 +15,50 @@ CANONICAL_SKILLS = (
     "woocommerce-finalize",
     "woocommerce-upgrade-safety",
 )
+
+
+class CodexExplicitInvocationPolicyTest(unittest.TestCase):
+    def test_every_skill_declares_native_explicit_only_policy(self):
+        for skill in CANONICAL_SKILLS:
+            with self.subTest(skill=skill):
+                path = ROOT / "skills" / skill / "agents/openai.yaml"
+                self.assertTrue(path.is_file(), f"{path.relative_to(ROOT)} must exist")
+                self.assertFalse(path.is_symlink())
+                text = path.read_text(encoding="utf-8")
+                self.assertRegex(
+                    text,
+                    r"(?m)^policy:[ \t]*\n[ \t]+allow_implicit_invocation:[ \t]*false[ \t]*(?:#.*)?$",
+                )
+                self.assertEqual(1, text.count("allow_implicit_invocation"))
+                self.assertNotRegex(text, r"(?i)allow_implicit_invocation:[ \t]*[\"']?true")
+
+    def test_codex_guide_documents_native_policy_and_unenforced_instructions(self):
+        codex_docs = (ROOT / "docs/codex.md").read_text(encoding="utf-8")
+
+        self.assertIn("agents/openai.yaml", codex_docs)
+        self.assertIn("allow_implicit_invocation", codex_docs)
+        self.assertRegex(codex_docs, r"(?i)\binstructions?\b")
+        self.assertRegex(codex_docs, r"(?i)\benforc\w*")
+
+
+class CodexProbeBoundaryTest(unittest.TestCase):
+    def test_codex_guide_discloses_probe_cli_boundary_without_claiming_later_versions(self):
+        codex_docs = (ROOT / "docs/codex.md").read_text(encoding="utf-8")
+        probe = codex_docs.split("## Local, disposable Codex probe", 1)[1].split("\n## ", 1)[0]
+
+        self.assertRegex(probe, r"(?i)codex(?: cli)?[^.\n]*(?:>=|at least|or later)[^.\n]*0\.147\.0")
+        self.assertNotRegex(
+            probe,
+            r"(?i)\b(?:all|any|every)\s+(?:later|newer|future)\b|\blater versions? (?:are|is|will be) (?:supported|compatible)",
+        )
+
+    def test_native_installed_path_readback_has_no_self_comparison_fallback(self):
+        method = CodexAdapterAcceptanceTest.test_local_disposable_probe_discovers_and_installs_codex_plugin
+        source = inspect.getsource(method)
+        readback = source.split("installed_entry = next(", 1)[1].split("installed_manifest = ", 1)[0]
+
+        self.assertRegex(readback, r'installed_entry(?:\.get\("installedPath"\)|\["installedPath"\])')
+        self.assertNotRegex(readback, r"\belse\b")
 
 
 class CodexAdapterAcceptanceTest(unittest.TestCase):
@@ -184,12 +229,14 @@ class CodexAdapterAcceptanceTest(unittest.TestCase):
             installed_entry = next(
                 plugin for plugin in installed_plugins if plugin.get("pluginId") == plugin_id
             )
-            self.assertEqual(
-                str(installed_path.resolve()),
-                str(Path(installed_entry.get("installedPath")).resolve())
-                if installed_entry.get("installedPath")
-                else str(installed_path.resolve()),
-            )
+            if "installedPath" in installed_entry:
+                listed_path = installed_entry["installedPath"]
+                self.assertIsInstance(listed_path, str)
+                self.assertTrue(listed_path.strip(), installed_entry)
+                self.assertEqual(
+                    str(installed_path.resolve()),
+                    str(Path(listed_path).resolve()),
+                )
 
             installed_manifest = json.loads(
                 (

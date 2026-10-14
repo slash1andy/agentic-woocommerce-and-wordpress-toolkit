@@ -65,6 +65,36 @@ and rotation path. Never commit live credentials. Do not place REST API secrets 
 - Queue slow processing only after authentication and durable receipt; acknowledge according to the
   provider contract.
 
+## WooCommerce 11.2 security changes
+
+These are version-scoped. Apply a note only when the target runs WooCommerce 11.2 or later and the
+extension touches the named surface; do not raise a supported minimum for them. WooCommerce asks stores to
+update to 11.2 for its security fixes.
+Source (October 7, 2026): https://developer.woocommerce.com/2026/10/07/woocommerce-11-2-0-release-notes/
+
+Downloads: 11.2 rejects malformed order and email credentials before the download permission lookup.
+Standard links are unchanged, but if a store uses custom or imported links, or permission records with
+malformed order or email data, they may stop working. Reissue the link, fix the record, or correct the
+billing email and regenerate permissions (regenerating resets download counts and logs).
+Source: https://developer.woocommerce.com/2026/10/07/woocommerce-11-2-0-release-notes/
+
+Mixed roles: 11.2 stops shop managers from editing users who also hold a role outside
+`woocommerce_shop_manager_editable_roles`, for example roles added by other plugins. Admins still can,
+and a site can add a role through that filter. Test mixed-role users when an extension adds roles or
+edits users on behalf of shop managers.
+Source: https://developer.woocommerce.com/2026/10/07/woocommerce-11-2-0-release-notes/
+
+Multisite: on multisite, 11.2 requires network super admin rights to import Blueprints, so subsite
+administrators can no longer import them. Single-site stores are unaffected; test the import only when an
+extension provisions through Blueprints on multisite.
+Source: https://developer.woocommerce.com/2026/10/07/woocommerce-11-2-0-release-notes/
+
+Email recipients: in 11.2, Cc and Bcc can no longer be set for the Reset password, New account, and Confirm
+email address emails, and saved addresses are ignored. If an integration needs a copy, use the
+`woocommerce_email_cc_recipient_{email_id}` or `woocommerce_email_bcc_recipient_{email_id}` filters, and
+do not route credential or verification links to extra recipients.
+Source: https://developer.woocommerce.com/2026/10/07/woocommerce-11-2-0-release-notes/
+
 ## Logging
 
 Use `wc_get_logger()` and a stable plugin source. Log event IDs, outcomes, and masked metadata needed

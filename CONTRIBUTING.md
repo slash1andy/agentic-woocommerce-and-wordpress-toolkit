@@ -36,6 +36,9 @@ Each `skills/*/evals/evals.json` file contains official-format manual evaluation
 - Edge cases in existing standards
 - Multi-step workflows that exercise several reference docs together
 
+Follow [maintenance and evaluation](docs/maintenance-and-evaluation.md) for candidate binding,
+paired arms, oracles, and approval boundaries.
+
 ### Agent improvements
 
 Agent definitions live in `agents/`. Keep them read-only and WooCommerce-specific. Useful changes
@@ -78,6 +81,13 @@ python3 -B -m unittest discover -s tests -p 'test_*.py'
 claude plugin validate .claude-plugin/plugin.json --strict
 claude plugin validate .claude-plugin/marketplace.json --strict
 ```
+
+## Development-only plan file
+
+The validator allows exactly one tracked path under `.hermes/`, the historical Codex adapter plan
+`.hermes/plans/2026-08-13_112812-codex-adapter.md`. It is scanned for private paths and credentials
+but is excluded from user-facing link and URL validation. Any other `.hermes/` path is rejected as an
+unexpected package path.
 
 ## How to submit
 

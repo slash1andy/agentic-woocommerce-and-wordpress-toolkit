@@ -66,6 +66,11 @@ Because these protocols and WooCommerce's native endpoints are evolving, **do no
 endpoints or assume a native gateway feature flag exists** without confirming it in the current
 WooCommerce release notes.
 
+WooCommerce 11.2 removed its experimental Agentic Checkout API and abandoned cart recovery with no
+replacement endpoint, so do not build on those routes or assume a native substitute; the version-scoped
+details and recovery consequences are in `references/woocommerce-apis.md`.
+Source: https://developer.woocommerce.com/2026/09/21/woocommerce-11-2-0-pre-release-notes/
+
 ---
 
 ## Agentic readiness checklist for a commerce or payment extension

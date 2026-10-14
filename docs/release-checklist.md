@@ -27,7 +27,7 @@ test "$release_diff_sha256" = "${REVIEWED_DIFF_SHA256:?Set REVIEWED_DIFF_SHA256 
 claude plugin tag --dry-run
 ```
 
-- [ ] Prove a copied-cache installation from the complete reviewed artifact, not a symlink or live checkout. Confirm the installed cache contains both manifests, all three skills, every skill/reference route, the agent, and `scripts/validate.py`, with no `.git` directory.
+- [ ] Prove a copied-cache installation from the complete reviewed artifact, not a symlink or live checkout. Confirm the installed cache contains both manifests, all three skills, every skill/reference route, the agent, `scripts/validate.py`, and `scripts/evaluate.py`, with no `.git` directory.
 
 ## Rehearse risk
 
@@ -39,5 +39,6 @@ claude plugin tag --dry-run
 ## Evaluation and approval
 
 - [ ] Run every manual scenario in fresh with-skill and without-skill sessions, retain actual outputs and failures, and keep deterministic contract results separate from response-quality claims.
+- [ ] Bind the evaluation to the frozen candidate: prepare a packet with `scripts/evaluate.py`, run the pinned harness directly, retain the `manifest_sha256` printed by prepare outside any writable packet, have a fresh independent judge write grades bound to scenario, arm, and the record's sha256, and collect with `--manifest-sha256` supplied from that retained value. Report coverage and acceptance separately; a complete run without grades is unresolved, not a pass. Rerun if the candidate digest changes.
 - [ ] Protect `main` and the `claude-woocommerce-toolkit--v*` release-tag pattern from force updates before publishing the first release.
 - [ ] Obtain explicit approval before changing repository settings, creating or pushing a tag, publishing a release, or submitting to a marketplace. Recheck the immutable diff after approval and before any approved action.
