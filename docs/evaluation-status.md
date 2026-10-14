@@ -19,6 +19,19 @@ The published evidence asset is
 It contains sanitized prompts, responses, completed grades, reused upgrade-safety re-grades, and the
 focused REST recertification.
 
+## Current candidate
+
+`scripts/evaluate.py` prepares and collects a paired evaluation packet. A historical completed
+migration-conclusions packet had 14/15 treatment scenarios accepted, with one remaining failure: a
+finalization overclaim. As of the 2026-10-12 pre-run source snapshot, the new source was awaiting
+fresh acceptance and had no response-level result at that time. This snapshot is not the live or
+current state; actual outcomes belong to the retained exact candidate packet. A later final candidate must rerun all behavior and must not reuse old
+grades. Structural and native passes are not behavioral evidence or release approval. The 1.1.0
+results above describe that earlier candidate only. See
+[maintenance and evaluation](maintenance-and-evaluation.md) for the packet contract.
+
+## Version 1.1.0 methodology and limits
+
 Methodology and limits: one run per arm is not a variance benchmark. The full final candidate was not
 freshly rerun after the one-line REST-rule fix; iteration 4 plus the focused final-candidate
 recertification are the release evidence. Deterministic schema and repository tests remain separate

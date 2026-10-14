@@ -19,8 +19,9 @@ compatibility and follow supported extension contracts.
 5. [REST API extensions](#rest-api-extensions)
 6. [WooCommerce REST API v3 authentication](#woocommerce-rest-api-v3-authentication)
 7. [Store API and Block checkout extensibility](#store-api-and-block-checkout-extensibility)
-8. [Action Scheduler](#action-scheduler)
-9. [WooCommerce Settings API](#woocommerce-settings-api)
+8. [Version-scoped changes in WooCommerce 11.1 and 11.2](#version-scoped-changes-in-woocommerce-111-and-112)
+9. [Action Scheduler](#action-scheduler)
+10. [WooCommerce Settings API](#woocommerce-settings-api)
 
 ---
 
@@ -98,30 +99,27 @@ $order->add_order_note(
 
 ### HPOS-aware queries
 
-Prefer `wc_get_orders()`. If repository evidence requires a custom query, branch on the active order
-storage:
+Use one native `wc_get_orders()` query. It reads through the active order data store, so HPOS and
+legacy post storage share the same read-only contract without a custom SQL or storage branch:
 
 ```php
-use Automattic\WooCommerce\Utilities\OrderUtil;
-
-if ( OrderUtil::custom_orders_table_usage_is_enabled() ) {
-	// Query the wc_orders table.
-	global $wpdb;
-	$results = $wpdb->get_results(
-		$wpdb->prepare(
-			"SELECT id FROM {$wpdb->prefix}wc_orders WHERE status = %s",
-			'wc-processing'
-		)
-	);
-} else {
-	// Fallback for legacy post-based storage.
-	$results = get_posts( array(
-		'post_type'   => 'shop_order',
-		'post_status' => 'wc-processing',
-		'fields'      => 'ids',
-	) );
-}
+$order_ids = wc_get_orders( array(
+	'type'    => 'shop_order',
+	'status'  => array( 'processing' ),
+	'limit'   => 50,
+	'page'    => 1,
+	'orderby' => 'ID',
+	'order'   => 'ASC',
+	'return'  => 'ids',
+) );
 ```
+
+The query is bounded by `limit` and `page`, uses ID ordering for a stable order within a single
+read, and returns order IDs only. Offset or page pagination is not stable across reads: concurrent
+deletion or growth can shift rows between pages, so it is not migration proof. Load full objects
+with `wc_get_order()` only for the IDs a caller needs. This is a read-only page: it does not record
+a cursor, retry state, or migration progress. Keep cursor and retry evidence for a migration
+separate from this read and store it through the migration's own approved mechanism.
 
 ---
 
@@ -204,6 +202,20 @@ $customer->save();
 
 ### Registering custom endpoints
 
+The following `Orders_Controller` is an incomplete registration fragment, not a runnable orders
+endpoint. `WP_REST_Controller` supplies inherited placeholder `get_items()` and `get_item()`
+methods, but the fragment lacks WooCommerce order-retrieval implementations of them, so the
+registered callbacks have no real order handling. A working endpoint also needs:
+
+- Collection and item CRUD handlers for every method you register (create, update, delete as
+  needed), each with its own permission callback.
+- Bounded collection parameters: `page` with `minimum` 1, `per_page` with `minimum` 1 and a
+  `maximum`, and a fixed `orderby` allow-list.
+- Missing-order handling: return a `WP_Error` with a 404 status when `wc_get_order()` finds no
+  order.
+- Declared response schemas (`get_item_schema()`) and prepared responses that match them.
+- Registration by calling `register_routes()` from a `rest_api_init` callback.
+
 ```php
 namespace PluginSlug\API;
 
@@ -231,6 +243,7 @@ class Orders_Controller extends \WP_REST_Controller {
 					'id' => array(
 						'description' => __( 'Unique identifier for the order.', 'plugin-slug' ),
 						'type'        => 'integer',
+						'minimum'     => 1,
 						'required'    => true,
 					),
 				),
@@ -446,9 +459,55 @@ add_filter( 'woocommerce_blocks_register_checkout_inner_block', function ( $bloc
 
 ---
 
+## Version-scoped changes in WooCommerce 11.1 and 11.2
+
+Apply each note only when the target runs that WooCommerce version or later and the extension touches
+the named surface. Do not raise the minimum supported WordPress or WooCommerce version because of
+these notes; keep supported older behavior and branch on the installed version.
+
+WooCommerce 11.2 (released October 7, 2026): when the Store API fails to load the cart session it returns
+HTTP 500 without `Cart-Token` or `Cart-Hash` headers. Clients that use `Cart-Token` must treat missing
+headers as an unavailable cart, not a new cart: fail closed, do not create or substitute a cart, and add
+a test for the failure response.
+Source: https://developer.woocommerce.com/2026/09/21/woocommerce-11-2-0-pre-release-notes/
+
+WooCommerce 11.2: `wc_get_orders()` and `wc_get_products()` read a date-only string such as `2026-07-20`
+as a day in the store timezone instead of UTC. Product queries change on every store; the legacy
+date-only order change is retained, applying only to stores still keeping orders as posts. HPOS being
+unaffected by this release does not prove UTC interpretation or that HPOS and legacy results differ; that
+comparison stays unverified without a versioned source or boundary test. When both storage modes are
+supported, run date-only boundary tests near midnight on each before comparing them.
+Source: https://developer.woocommerce.com/2026/09/21/woocommerce-11-2-0-pre-release-notes/
+
+WooCommerce 11.2 removed the experimental abandoned cart recovery and Agentic Checkout APIs, including the
+`wc/agentic/v1` routes, with no replacement endpoint. The 11.2 database update cancels queued recovery
+actions and drops the `wc_email_unsubscribes` table. If an extension depends on them, report the removal
+and the recovery consequences; do not invent a replacement endpoint or recreate the table.
+Source: https://developer.woocommerce.com/2026/09/21/woocommerce-11-2-0-pre-release-notes/
+
+WooCommerce 11.1 (released September 1, 2026) no longer registers block types and patterns on requests
+that cannot render or edit blocks, which includes Store API and REST requests. If an extension renders
+WooCommerce blocks during one of those requests, opt back in with the `woocommerce_should_register_blocks`
+filter.
+Source: https://developer.woocommerce.com/2026/09/03/wc-11-1-release-notes/
+
+WooCommerce 11.1: `WC_Abstract_Order::remove_order_items()` now records the item IDs that existed when
+removal was requested, so replacement items added before `$order->save()` are not deleted by accident. If
+you maintain a custom order data store, review your `get_item_ids()` and `delete_items_by_ids()`
+implementations.
+Source: https://developer.woocommerce.com/2026/09/03/wc-11-1-release-notes/
+
+---
+
 ## Action Scheduler
 
 For background processing, use Action Scheduler (bundled with WooCommerce) instead of WP-Cron.
+
+WooCommerce 11.2 advisory: PublishPress Future 3.0.0 through 4.10.3 can cause a fatal error because they
+load their own outdated copy of Action Scheduler instead of the bundled one; 4.10.4 fixes it. When a
+target site runs a plugin that bundles Action Scheduler, inspect the copy and version actually selected
+and the plugin load order; generic scheduling examples do not establish coexistence.
+Source: https://developer.woocommerce.com/2026/10/07/woocommerce-11-2-0-release-notes/
 
 ```php
 // Schedule a single action.
@@ -483,6 +542,11 @@ add_action( 'plugin_slug_process_order', function ( int $order_id ) {
 ---
 
 ## WooCommerce Settings API
+
+The Settings UI (WooCommerce 10.9 and later) is experimental and opt-in behind the `settings-ui`
+feature flag, subject to change, and not a stable production integration point. Pages that do not opt
+in keep the PHP renderer and no React rewrite is required; test both the legacy and the opted-in path.
+Source (July 8, 2026): https://developer.woocommerce.com/2026/07/08/settings-ui/
 
 Integrate settings into WooCommerce > Settings by extending `WC_Settings_Page`:
 

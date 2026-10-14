@@ -29,6 +29,11 @@ Inspect the repository and its conventions first: plugin headers, dependency man
 source layout, project instructions, configured test/static-analysis commands, CI, and release docs.
 Trace the affected bootstrap, hooks, callers, storage, and tests. Reuse what is present, infer answers
 from evidence, and ask only for blockers that materially change the implementation or safety boundary.
+Resolve engineering choices (bootstrap placement, autoload mapping, file layout) from repository
+evidence; do not ask the user to decide them. Preserve the existing bootstrap and source layout unless
+the requested behavior demonstrably cannot work without relocating it; matching an autoload mapping
+alone is not a reason. Ask only materially unresolved product or safety questions, and obtain write
+approval as a separate step.
 
 ### New plugin
 
@@ -43,7 +48,11 @@ settings, extensibility, and infrastructure.
 ## Minimal execution loop
 
 1. **Define one behavior.** State the user-visible or integration outcome, affected data, trust boundary,
-   and unsupported surfaces.
+   and unsupported surfaces. Every proposed write scope must list concrete, observable acceptance
+   checks for that behavior, even when run by a manual or ad-hoc script; naming a test framework or
+   promising future testing is not a verification scope. For points or currency state, examples are
+   the earning/redemption rate, balance cap, and retry/duplicate handling; these illustrate the
+   checks, not a requirement to build a ledger or larger architecture.
 2. **Reuse the project.** Reuse existing Composer, npm, test, and static-analysis setup. Add JavaScript,
    Playwright, `wp-env`, containers, CI, or a service container only when the requested behavior needs
    it and the repository has no adequate path. Do not add PHPUnit or replacement test scaffolding
@@ -67,6 +76,11 @@ settings, extensibility, and infrastructure.
 7. **Run configured gates.** Run focused checks first, then the applicable documented project commands.
    Report exact commands, results, skipped gates, and the remaining approval boundary.
 
+Approved files are not blanket feature approval. Before writing or handoff, reconcile the actual
+merchant-facing settings and form fields with the approved feature scope, and remove or ask about any
+extra. A native default optional title field is still a feature: reconcile it too, and use a constant
+label unless the title field is approved.
+
 ## Coding rules
 
 - Follow the repository's tested compatibility floor and coding convention; do not impose a toolkit
@@ -81,6 +95,52 @@ settings, extensibility, and infrastructure.
   match its types; do not rely on prose to define the contract.
 - Make payment, webhook, scheduled-action, and migration handlers idempotent and safe to replay.
 - Retain plugin data on uninstall unless a separately approved, explicit deletion policy says otherwise.
+
+## Evidence rules
+
+Before shipping, resolve and report the complete main-file plugin headers actually present in the
+approved scope: WordPress, PHP, and WooCommerce requirement headers and dependency headers. Do not
+guess them, and state which are absent.
+
+Define exact REST parameter schemas with positive bounds (for example `type => integer`, `minimum => 1`)
+and validate the schema before sanitizing. Do not use `is_numeric` plus integer coercion, which accepts
+fractional or malformed IDs.
+
+Keep the native schema (`type => integer`, `minimum => 1`) as the first validation step, but do not treat
+it as a lexical ID check. WordPress 7.1.3 `rest_is_integer` accepts canonical strings and deliberately
+keeps its historical numeric-string behavior for decimal and scientific notation. Where the contract is a
+canonical positive decimal ID, add a supplemental check at the request boundary on the raw URI/query string,
+validate it before sanitizing or coercion, and require an absolute full-string match of the PHP PCRE
+pattern `\A[1-9][0-9]*\z` on the raw string before any coercion, plus the target's supported integer
+range. Reject exponent or scientific notation (`1e3`), decimals (`1.0`), signs (`+1`), whitespace, and
+other noncanonical strings. `absint` and `rest_validate_request_arg` alone are not this check.
+
+This raw-string check applies to string IDs only. A decoded positive JSON integer remains valid: do not
+reject it based on its original wire representation, and do not raise the platform floor for it.
+
+When stubs cannot prove an integration, exercise the real WordPress/WooCommerce REST route or checkout
+path and report it; a stub-only test leaves that integration unverified. Mark every unexecuted claim
+unverified, including Classic checkout, which stays unclaimed until tested.
+
+When full REST integration tests are explicitly requested, bootstrap real WordPress and WooCommerce and
+use native `rest_do_request`, authentication, schema validation, and CRUD checks. Do not define
+replacement WordPress, WooCommerce, or authentication classes or functions and present them as proof. You
+may propose or add the native test dependencies needed within the approved scope, even in an empty
+repository. If they are unavailable, label the full suite pending and never describe stub coverage as the
+requested suite. Keep small requests on the minimal-check default.
+
+Before planning or authoring explicitly requested full native REST tests, you must read
+`references/testing.md` for the native authentication hook and canonical test-discovery requirements.
+
+Preserve a REST namespace or identifier the user requested unless they separately and explicitly approve a
+change; never infer a namespace from a branding or prefix suggestion.
+
+When planning Abilities or MCP exposure on WordPress 7.1, the proposed exposure plan must itself explain
+the core `meta.public` default (resolved to boolean `false` when unset) and how the REST and MCP channel
+values take precedence over it; reading the reference or listing `meta.mcp.public` is not enough. An
+explicit channel `false` stays `false`, a `null` channel follows the actual fallback to `meta.public`,
+and do not force `public => true` or raise a global WordPress or WooCommerce floor for it.
+`permission_callback` remains required.
 
 ## Progressive references
 

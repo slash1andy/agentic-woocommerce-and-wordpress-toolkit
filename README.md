@@ -20,7 +20,9 @@ Each skill includes manual evaluation scenarios following the current `skill-cre
 its `evals/evals.json` path.
 Version 1.1.0 includes one with-skill and one without-skill response run per scenario, plus a focused
 final-candidate REST recertification. These results are not variance benchmarks; see
-[evaluation status](docs/evaluation-status.md).
+[evaluation status](docs/evaluation-status.md). Maintainer standards for changing and evaluating the
+toolkit are in [maintenance and evaluation](docs/maintenance-and-evaluation.md); the current
+candidate is unevaluated until real runs are recorded.
 
 ### UX agent
 
@@ -29,6 +31,20 @@ final-candidate REST recertification. These results are not variance benchmarks;
 
 This release contains **3 skills and 1 read-only UX agent**. The repository validator checks that
 inventory before release.
+
+### Instructions and enforced controls
+
+Skill text is instructions to the model: read-only starts, untrusted-data handling, and approval
+gates are documented behavior that no host is guaranteed to enforce. Controls that a host enforces
+are narrower:
+
+- The UX reviewer agent is Claude Code-only. Claude Code enforces its host-native tool allowlist
+  (`Read, Grep, Glob`), which restricts the agent to read-only tools; its natural-language
+  instructions are not a universal sandbox.
+- Each skill sets `disable-model-invocation: true` for Claude Code and ships a native
+  `agents/openai.yaml` policy with `allow_implicit_invocation: false` for Codex. These keep
+  invocation explicit but do not enforce write or release approval.
+- Hermes Agent loads the skills as text and adds no toolkit-specific enforcement.
 
 ## Why this fork
 

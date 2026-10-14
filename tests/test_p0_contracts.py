@@ -224,6 +224,73 @@ class P0ContractsTest(unittest.TestCase):
                     self.assertIn(route, text)
                     self.assertTrue((skill.parent / "../woocommerce-plugin-dev/references" / name).is_file())
 
+    def test_cross_skill_reference_routes_have_host_independent_relative_paths(self):
+        expected = {
+            FINALIZE: (
+                "coding-standards.md",
+                "security.md",
+                "woocommerce-apis.md",
+                "ux-guidelines.md",
+            ),
+            UPGRADE: (
+                "woocommerce-apis.md",
+                "security.md",
+                "plugin-architecture.md",
+            ),
+        }
+        for skill, names in expected.items():
+            without_variable_routes = re.sub(
+                r"\$\{CLAUDE_SKILL_DIR\}/\.\./woocommerce-plugin-dev/references/[A-Za-z0-9_.-]+",
+                "",
+                read(skill),
+            )
+            for name in names:
+                with self.subTest(skill=skill.parent.name, reference=name):
+                    self.assertRegex(
+                        without_variable_routes,
+                        rf"(?<![\w/$}}]){re.escape('../woocommerce-plugin-dev/references/' + name)}",
+                    )
+
+    def test_host_controls_distinguish_instruction_from_enforcement(self):
+        docs = {
+            "README.md": read(ROOT / "README.md"),
+            "docs/codex.md": read(ROOT / "docs/codex.md"),
+            "docs/hermes-agent.md": read(ROOT / "docs/hermes-agent.md"),
+            "docs/installation.md": read(INSTALLATION),
+        }
+        for relative in ("README.md", "docs/codex.md", "docs/hermes-agent.md"):
+            with self.subTest(document=relative):
+                self.assertRegex(docs[relative], r"(?i)\binstructions?\b")
+                self.assertRegex(docs[relative], r"(?i)\benforc\w*")
+
+        readme = docs["README.md"]
+        self.assertRegex(
+            readme,
+            r"(?is)(?:agent|UX reviewer)[^.]{0,200}(?:Claude Code[- ]only|only (?:in|for|on|through) Claude Code)"
+            r"|(?:Claude Code[- ]only|only (?:in|for|on|through) Claude Code)[^.]{0,200}(?:agent|UX reviewer)",
+        )
+        self.assertRegex(
+            readme,
+            r"(?is)(?:tools|allowlist)[^.]{0,200}Read, Grep, Glob[^.]{0,200}enforc"
+            r"|enforc[^.]{0,200}(?:tools|allowlist)[^.]{0,200}Read, Grep, Glob",
+        )
+        self.assertRegex(
+            docs["docs/codex.md"],
+            r"(?is)approval[^.]{0,200}instruction[^.]{0,200}(?:not|no)[^.]{0,80}enforc"
+            r"|(?:not|no)[^.]{0,80}enforc[^.]{0,200}approval",
+        )
+        self.assertRegex(
+            docs["docs/hermes-agent.md"],
+            r"(?is)(?:approval|explicit)[^.]{0,200}instruction[^.]{0,200}(?:not|no)[^.]{0,80}enforc"
+            r"|(?:not|no)[^.]{0,80}enforc[^.]{0,200}(?:approval|explicit)",
+        )
+        for relative, text in docs.items():
+            with self.subTest(document=relative, claim="no unqualified enforcement"):
+                self.assertNotRegex(
+                    text,
+                    r"(?i)\b(?:Codex|Hermes)\b[^.]{0,120}\b(?:enforces|guarantees|prevents)\b[^.]{0,80}\b(?:approval|writes?)\b",
+                )
+
     def test_uninstall_and_secret_guidance_are_safe(self):
         architecture = read(ARCHITECTURE)
         uninstall = architecture.split("## Uninstall handler", 1)[1].split("\n---", 1)[0]

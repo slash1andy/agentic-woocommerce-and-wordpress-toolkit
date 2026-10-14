@@ -14,9 +14,22 @@ and `woocommerce-upgrade-safety` are exposed through Codex.
 - The Codex adapter does not expose the UX reviewer skill; that capability remains in the
   Claude-only adapter.
 
+## Explicit invocation policy
+
+Each skill ships `agents/openai.yaml` with the minimal native policy
+`allow_implicit_invocation: false` under `policy:`, so Codex does not select the skill without an
+explicit request. The repository validator accepts only that exact two-line file.
+
+This metadata controls skill discovery and selection. It is not approval enforcement: the approval
+gates in these skills are instructions to the model, and Codex does not enforce them. Keep
+sandbox and approval settings in your Codex configuration.
+
 ## Local, disposable Codex probe
 
 Use an isolated `CODEX_HOME` so this probe cannot affect your normal Codex state.
+
+The probe commands below need Codex CLI >= 0.147.0, the minimum tooling version for this probe. That
+minimum does not establish compatibility with any specific later release; record the actual `codex --version` you probed.
 
 Set `CODEX_HOME` to a disposable directory, then run:
 
@@ -28,7 +41,10 @@ Run `codex plugin add agentic-woocommerce-toolkit@<marketplace-name> --json` and
 
 - the plugin install result includes one installed `agentic-woocommerce-toolkit` entry,
 - the plugin source path is `/absolute/path/to/agentic-woocommerce-and-wordpress-toolkit`,
-- `codex plugin list --json` includes that plugin as installed.
+- `codex plugin list --json` includes that plugin as installed. When that entry reports
+  `installedPath`, it must be a nonempty string that matches the install result path. The list may omit
+  `installedPath`; do not infer one. The installed manifest and skill files are checked on the filesystem
+  separately, so they do not corroborate the list entry.
 
 Then run a **manual post-install acceptance step** with that same `CODEX_HOME` to confirm each
 canonical namespace can be used:

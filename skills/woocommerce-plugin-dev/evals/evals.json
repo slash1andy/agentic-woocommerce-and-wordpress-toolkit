@@ -60,7 +60,7 @@
     {
       "id": 4,
       "prompt": "The attached WooCommerce gateway-companion plugin needs a read-only 'recent orders' operation through the shared WordPress MCP Adapter. How should I build it for AI shopping agents?",
-      "expected_output": "Registers a WordPress Ability on the wp_abilities_api_init hook via wp_register_ability() with the woocommerce category, input/output schema, a real permission_callback, and meta.mcp.public for the shared WordPress MCP Adapter. Defaults to read-only and uses WooCommerce CRUD inside execute_callback. Treats woocommerce_mcp_include_ability as deprecated endpoint compatibility only. Does not expose secrets or use an open permission check.",
+      "expected_output": "Registers a WordPress Ability on the wp_abilities_api_init hook via wp_register_ability() with the woocommerce category, input/output schema, a real permission_callback, and a version-aware exposure choice: on WordPress 7.1 or later meta.public supplies the default and an explicit channel value such as show_in_rest false is retained over it; meta.mcp.public is kept for the shared WordPress MCP Adapter where older WordPress or adapter versions must be supported. Defaults to read-only and uses WooCommerce CRUD inside execute_callback. Treats woocommerce_mcp_include_ability as deprecated endpoint compatibility only. Does not expose secrets or use an open permission check, and does not treat exposure flags as authorization.",
       "files": [
         "evals/fixtures/existing-plugin.php"
       ],
@@ -69,7 +69,9 @@
         "Defines input_schema and output_schema for the ability",
         "Gates the ability with a real permission_callback (e.g. current_user_can('edit_shop_orders') or 'manage_woocommerce'), not an open check",
         "Uses WooCommerce CRUD (wc_get_orders / $order->get_*) inside execute_callback, not get_post_meta()",
-        "Uses the woocommerce category and exposes the ability through the shared adapter with meta.mcp.public",
+        "Uses the woocommerce category and exposes the ability through the shared adapter with meta.mcp.public where older adapters or WordPress releases must be supported, and states that WordPress 7.1 adds meta.public as a default",
+        "States that an explicit channel value such as show_in_rest false is retained over meta.public, and does not add a blanket instruction to raise the minimum WordPress version",
+        "Keeps permission_callback independent of every exposure flag and does not describe exposure as authorization",
         "Keeps the ability read-only and does not return secrets or credentials"
       ]
     },
@@ -81,6 +83,19 @@
       "expectations": [
         "Keeps the response limited to the supplied listing copy",
         "Does not request write approval or create a WooCommerce development plan"
+      ]
+    },
+    {
+      "id": 6,
+      "prompt": "Explain how an ability in my WooCommerce extension should be exposed and validated on a site running WordPress 7.1. It is registered with public true and show_in_rest explicitly false, its input schema uses validate_callback and sanitize_callback, and I want to send its schema to a custom JavaScript client. Answer in chat only; do not edit files.",
+      "expected_output": "Answers in chat without writing files or requesting write approval. Explains that an explicit show_in_rest false is retained over meta.public, that exposure flags never replace permission_callback, that validate_callback and sanitize_callback are not run by the Abilities API runtime so custom checks belong in wp_ability_validate_input and wp_ability_validate_output or execute_callback, and that the canonical server schema stays registered while a copy is prepared with wp_prepare_json_schema_for_client for the outbound client. Scopes the advice to WordPress 7.1 without raising a global minimum version.",
+      "files": [],
+      "expectations": [
+        "Says an explicit show_in_rest false is retained over public true and that only null counts as unset",
+        "Says exposure flags are not authorization and permission_callback is still required",
+        "Says validate_callback and sanitize_callback are not runtime validation and names wp_ability_validate_input and wp_ability_validate_output for custom validation",
+        "Keeps the canonical server schema and prepares only a copy with wp_prepare_json_schema_for_client for the external client",
+        "Scopes the guidance to WordPress 7.1 and does not require raising the plugin minimum version or edit files"
       ]
     }
   ]

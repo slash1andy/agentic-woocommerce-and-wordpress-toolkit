@@ -1,0 +1,237 @@
+diff --git a/src/WebhookHandler.php b/src/WebhookHandler.php
+new file mode 100644
+--- /dev/null
++++ b/src/WebhookHandler.php
+@@ -0,0 +1,53 @@
++<?php
++declare(strict_types=1);
++
++namespace FixtureCommerce;
++
++/**
++ * Clean-control scope: one synthetic process, two-decimal currencies, integer minor units.
++ * The paid-state check is not an atomic or distributed replay guard. Concurrent deliveries are
++ * outside this scope and are not claimed safe.
++ */
++final class WebhookHandler {
++    /** @return array{0:int,1:string} HTTP status and outcome. */
++    public static function handle(string $raw_body, string $signature, string $secret, callable $find_order): array {
++        if ('' === $secret || '' === $signature || ! hash_equals(hash_hmac('sha256', $raw_body, $secret), $signature)) {
++            return array(401, 'invalid_signature');
++        }
++        $event = json_decode($raw_body, true);
++        if (
++            ! is_array($event)
++            || ! is_int($event['order_id'] ?? null)
++            || ! is_int($event['amount_minor'] ?? null)
++            || ! is_string($event['currency'] ?? null)
++            || ! is_string($event['status'] ?? null)
++        ) {
++            return array(400, 'malformed_event');
++        }
++        if ('paid' !== $event['status']) {
++            return array(422, 'unsupported_status');
++        }
++        $order = $find_order($event['order_id']);
++        if (null === $order) {
++            return array(404, 'unknown_order');
++        }
++        if (
++            $order->get_currency() !== $event['currency']
++            || self::to_minor_units($order->get_total()) !== $event['amount_minor']
++        ) {
++            return array(409, 'amount_or_currency_mismatch');
++        }
++        if (! $order->needs_payment()) {
++            return array(200, 'already_processed');
++        }
++        $order->payment_complete();
++        return array(200, 'processed');
++    }
++
++    private static function to_minor_units(string $decimal): ?int {
++        if (1 !== preg_match('/^(\d{1,12})(?:\.(\d{1,2}))?$/', $decimal, $parts)) {
++            return null;
++        }
++        return (int) $parts[1] * 100 + (int) str_pad($parts[2] ?? '', 2, '0');
++    }
++}
+diff --git a/src/CheckoutGateway.php b/src/CheckoutGateway.php
+new file mode 100644
+--- /dev/null
++++ b/src/CheckoutGateway.php
+@@ -0,0 +1,24 @@
++<?php
++namespace FixtureCommerce;
++
++defined('ABSPATH') || exit;
++
++require_once __DIR__ . '/WebhookHandler.php';
++
++final class CheckoutGateway {
++    public static function register(): void {
++        add_action('woocommerce_api_fixture_gateway', array(self::class, 'handle_callback'));
++    }
++
++    public static function handle_callback(): void {
++        $signature = (string) wp_unslash($_SERVER['HTTP_X_FIXTURE_SIGNATURE'] ?? '');
++        $secret    = defined('FIXTURE_WEBHOOK_SECRET') ? (string) FIXTURE_WEBHOOK_SECRET : '';
++        [$status, $outcome] = WebhookHandler::handle(
++            (string) file_get_contents('php://input'),
++            $signature,
++            $secret,
++            static fn (int $order_id) => wc_get_order($order_id) ?: null
++        );
++        wp_send_json(array('outcome' => $outcome), $status);
++    }
++}
+diff --git a/tests/WebhookHandlerTest.php b/tests/WebhookHandlerTest.php
+new file mode 100644
+--- /dev/null
++++ b/tests/WebhookHandlerTest.php
+@@ -0,0 +1,145 @@
++<?php
++declare(strict_types=1);
++
++use FixtureCommerce\WebhookHandler;
++
++// Run with: php tests/WebhookHandlerTest.php (PHP CLI only; no WordPress, PHPUnit, or network).
++require __DIR__ . '/../src/WebhookHandler.php';
++
++final class FakeOrder {
++    public int $completions = 0;
++    private string $total;
++    private string $currency;
++    private bool $unpaid = true;
++
++    public function __construct(string $total, string $currency) {
++        $this->total    = $total;
++        $this->currency = $currency;
++    }
++
++    public function get_total(): string {
++        return $this->total;
++    }
++
++    public function get_currency(): string {
++        return $this->currency;
++    }
++
++    public function needs_payment(): bool {
++        return $this->unpaid;
++    }
++
++    public function payment_complete(): void {
++        ++$this->completions;
++        $this->unpaid = false;
++    }
++}
++
++final class WebhookHandlerTest {
++    private const SECRET = 'fixture-secret';
++
++    private function event(array $overrides = array()): string {
++        return (string) json_encode(array_merge(
++            array('order_id' => 7, 'amount_minor' => 1050, 'currency' => 'USD', 'status' => 'paid'),
++            $overrides
++        ));
++    }
++
++    private function sign(string $body): string {
++        return hash_hmac('sha256', $body, self::SECRET);
++    }
++
++    private function deliver(string $body, string $signature, FakeOrder $order): array {
++        return WebhookHandler::handle($body, $signature, self::SECRET, static fn (int $id) => 7 === $id ? $order : null);
++    }
++
++    private function expect($expected, $actual): void {
++        if ($expected !== $actual) {
++            throw new RuntimeException('expected ' . var_export($expected, true) . ', got ' . var_export($actual, true));
++        }
++    }
++
++    public function test_valid_event_completes_payment_once(): void {
++        $order = new FakeOrder('10.50', 'USD');
++        $body  = $this->event();
++        $this->expect(array(200, 'processed'), $this->deliver($body, $this->sign($body), $order));
++        $this->expect(1, $order->completions);
++    }
++
++    public function test_bad_signature_is_denied(): void {
++        $order = new FakeOrder('10.50', 'USD');
++        $this->expect(array(401, 'invalid_signature'), $this->deliver($this->event(), 'deadbeef', $order));
++        $this->expect(array(401, 'invalid_signature'), $this->deliver($this->event(), '', $order));
++        $this->expect(0, $order->completions);
++    }
++
++    public function test_signature_must_cover_the_raw_body(): void {
++        $order  = new FakeOrder('10.50', 'USD');
++        $signed = $this->sign($this->event());
++        $this->expect(array(401, 'invalid_signature'), $this->deliver($this->event(array('amount_minor' => 1)), $signed, $order));
++        $this->expect(0, $order->completions);
++    }
++
++    public function test_unknown_order_is_denied(): void {
++        $order = new FakeOrder('10.50', 'USD');
++        $body  = $this->event(array('order_id' => 8));
++        $this->expect(array(404, 'unknown_order'), $this->deliver($body, $this->sign($body), $order));
++        $this->expect(0, $order->completions);
++    }
++
++    public function test_amount_mismatch_is_denied(): void {
++        $order = new FakeOrder('10.50', 'USD');
++        foreach (array(1049, 1051, 0, -1050) as $amount) {
++            $body = $this->event(array('amount_minor' => $amount));
++            $this->expect(array(409, 'amount_or_currency_mismatch'), $this->deliver($body, $this->sign($body), $order));
++        }
++        $this->expect(0, $order->completions);
++    }
++
++    public function test_currency_mismatch_is_denied(): void {
++        $order = new FakeOrder('10.50', 'USD');
++        $body  = $this->event(array('currency' => 'EUR'));
++        $this->expect(array(409, 'amount_or_currency_mismatch'), $this->deliver($body, $this->sign($body), $order));
++        $this->expect(0, $order->completions);
++    }
++
++    public function test_unsupported_status_is_denied(): void {
++        $order = new FakeOrder('10.50', 'USD');
++        $body  = $this->event(array('status' => 'failed'));
++        $this->expect(array(422, 'unsupported_status'), $this->deliver($body, $this->sign($body), $order));
++        $this->expect(0, $order->completions);
++    }
++
++    public function test_malformed_event_is_denied(): void {
++        $order = new FakeOrder('10.50', 'USD');
++        foreach (array('{"order_id":"7"}', '{"order_id":7,"amount_minor":1050.0,"currency":"USD","status":"paid"}', '[]') as $body) {
++            $this->expect(array(400, 'malformed_event'), $this->deliver($body, $this->sign($body), $order));
++        }
++        $this->expect(0, $order->completions);
++    }
++
++    public function test_replay_has_no_second_commerce_effect(): void {
++        $order = new FakeOrder('10.50', 'USD');
++        $body  = $this->event();
++        $this->expect(array(200, 'processed'), $this->deliver($body, $this->sign($body), $order));
++        $this->expect(array(200, 'already_processed'), $this->deliver($body, $this->sign($body), $order));
++        $this->expect(array(200, 'already_processed'), $this->deliver($body, $this->sign($body), $order));
++        $this->expect(1, $order->completions);
++    }
++}
++
++$failures = 0;
++$suite    = new WebhookHandlerTest();
++foreach (get_class_methods($suite) as $method) {
++    if (0 !== strpos($method, 'test_')) {
++        continue;
++    }
++    try {
++        $suite->$method();
++        echo "PASS {$method}\n";
++    } catch (Throwable $error) {
++        ++$failures;
++        echo "FAIL {$method}: {$error->getMessage()}\n";
++    }
++}
++exit($failures > 0 ? 1 : 0);

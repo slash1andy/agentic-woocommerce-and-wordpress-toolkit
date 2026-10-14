@@ -28,10 +28,12 @@ REST API and Store API.
 1. [The three-layer model](#the-three-layer-model)
 2. [Registering an ability](#registering-an-ability)
 3. [Exposing an ability through MCP](#exposing-an-ability-through-mcp)
-4. [The WooCommerce path](#the-woocommerce-path)
-5. [Security and permissions](#security-and-permissions)
-6. [Connecting an MCP client](#connecting-an-mcp-client)
-7. [Checklist](#checklist)
+4. [WordPress 7.1 exposure, validation, and schemas](#wordpress-71-exposure-validation-and-schemas)
+5. [MCP Adapter 0.7 installation](#mcp-adapter-07-installation)
+6. [The WooCommerce path](#the-woocommerce-path)
+7. [Security and permissions](#security-and-permissions)
+8. [Connecting an MCP client](#connecting-an-mcp-client)
+9. [Checklist](#checklist)
 
 ---
 
@@ -46,7 +48,8 @@ Keep these three layers distinct — they are separate projects with separate jo
 | **MCP client / agent** | The consumer — Claude, an in-site assistant, an automation runner — that speaks the Model Context Protocol. | external |
 
 The flow is one-directional: **register an Ability → the MCP Adapter exposes it → an agent calls it**.
-Execution always returns through the ability's permission callback. The same registered capability
+On the normal core path, execution passes through the ability's permission callback; a custom
+`wp_pre_execute_ability` short-circuit bypasses it and must enforce equivalent authorization. The same registered capability
 can support REST, WP-CLI, automation, and admin tooling.
 
 ---
@@ -117,7 +120,7 @@ add_action( 'wp_abilities_api_init', function () {
 					$orders
 				);
 			},
-			// Runs on EVERY invocation, regardless of transport. No open abilities that touch store data.
+			// Runs on every normal-path invocation, regardless of transport; a pre-execute short-circuit must enforce its own authorization. No open abilities that touch store data.
 			'permission_callback' => function (): bool {
 				return current_user_can( 'edit_shop_orders' );
 			},
@@ -141,7 +144,9 @@ A registered ability is not automatically reachable by an external agent — it 
 through an MCP server. There are two routes.
 
 **1. The WordPress MCP Adapter default server (default path).**
-Set the `meta.mcp.public` flag and the MCP Adapter's default server makes the ability discoverable:
+Set the `meta.mcp.public` channel flag (the form used by this reference's examples and by older
+bundled adapters; see the WordPress 7.1 section below for `meta.public`) and the MCP Adapter's
+default server makes the ability discoverable:
 
 ```php
 // Add to the ability definition array:
@@ -156,14 +161,93 @@ On the default server, public abilities are reached through the adapter's built-
 (`mcp-adapter/discover-abilities`, `mcp-adapter/get-ability-info`, `mcp-adapter/execute-ability`)
 at `/wp-json/mcp/mcp-adapter-default-server`, rather than each appearing individually in
 `tools/list`. A custom MCP server can instead list specific abilities directly as tools, resources,
-or prompts. Install the adapter via Composer (the Jetpack Autoloader is recommended when several
-bundling plugins may coexist).
+or prompts. See "MCP Adapter 0.7 installation" below for version-scoped installation guidance.
 
 **2. Deprecated Woo endpoint compatibility only.**
 The `woocommerce_mcp_include_ability` filter belongs to WooCommerce's deprecated MCP endpoint.
 Use it only when intentionally maintaining compatibility with that endpoint on a verified deployed
 WooCommerce version; new integrations should use the shared WordPress MCP Adapter and
 `meta.mcp.public`.
+
+---
+
+## WordPress 7.1 exposure, validation, and schemas
+
+These notes apply only to sites running WordPress 7.1 or later. Do not raise a plugin's minimum
+WordPress or WooCommerce version to use them; keep the older registration working and guard on the
+installed version.
+
+In WordPress 7.1, `meta.public` records an ability's general exposure intent. REST resolves
+`$meta['show_in_rest'] ?? $meta['public'] ?? false`, so `public => true` makes `show_in_rest` default
+to true, and resolved metadata always carries a boolean `public` that defaults to `false`.
+Source (August 4, 2026): https://make.wordpress.org/core/2026/08/04/a-unified-public-exposure-flag-for-abilities-in-wordpress-7-1/
+
+An explicit channel value overrides `public`: `public => true` with `show_in_rest => false` stays
+hidden from REST, and `public => false` with `show_in_rest => true` is exposed. Null-coalescing keeps an
+explicit `false`; only `null` counts as unset. Existing `show_in_rest` registrations remain valid and
+need no migration. An integration must not overwrite an explicit channel opt-out because `public` is true.
+Source: https://make.wordpress.org/core/2026/08/04/a-unified-public-exposure-flag-for-abilities-in-wordpress-7-1/
+
+Keep `meta.mcp.public` when the deployment may run on a WordPress release earlier than 7.1 or on an
+MCP Adapter that does not yet read `meta.public`; the dev note says the adapter will respect the
+unified flag starting with its next release, so verify the installed adapter version. Keep the channel
+value explicit, because a channel value takes precedence over `public`.
+Source: https://make.wordpress.org/core/2026/08/04/a-unified-public-exposure-flag-for-abilities-in-wordpress-7-1/
+
+`meta.public`, `show_in_rest`, and `meta.mcp.public` control discoverability and client exposure. They
+are not authorization and do not replace `permission_callback`, which must still run and check a real
+capability on every normal-path invocation. Never treat an exposure flag as a security boundary.
+Source: https://make.wordpress.org/core/2026/08/04/a-unified-public-exposure-flag-for-abilities-in-wordpress-7-1/
+
+WordPress 7.1 adds the `wp_ability_validate_input` and `wp_ability_validate_output` filters for custom
+ability validation. `validate_callback` and `sanitize_callback` in an ability schema are REST-style
+conventions that the Abilities API runtime validation does not run, so they are not executed for
+abilities: do not rely on them, and keep server-side checks in the filters or in `execute_callback`.
+Source (July 31, 2026): https://make.wordpress.org/core/2026/07/31/json-schema-preparation-for-client-compatibility-in-wordpress-7-1/
+
+On the normal runtime path, the installed WordPress 7.1.3 `WP_Ability` validates input against the
+canonical `input_schema` before `execute_callback` runs and validates the result against `output_schema`
+before returning it. Additional domain checks supplement this validation rather than replace it, and the
+REST-style `validate_callback` and `sanitize_callback` schema keys still do not run. This describes the
+core pipeline only; it does not promise that every custom filter or a rollback is covered.
+Source (WordPress 7.1.3): https://github.com/WordPress/wordpress-develop/blob/7.1.3/src/wp-includes/abilities-api/class-wp-ability.php
+
+A `wp_pre_execute_ability` short-circuit in WordPress 7.1.3 returns before input normalization,
+`validate_input()`, `check_permissions()` (so before `permission_callback`), and output validation.
+Qualify the guarantee: it holds for the normal path, not every path. A callback on that filter must
+enforce equivalent authorization itself, and validate any `$input` it consumes, because the core
+`permission_callback` is bypassed; do not return data or write from a short-circuit without that check.
+This is not permission to leave abilities open: still register a real `permission_callback` for the
+normal path, and do not rely on schema validation for authorization.
+Source (WordPress 7.1.3): https://github.com/WordPress/wordpress-develop/blob/7.1.3/src/wp-includes/abilities-api/class-wp-ability.php
+
+Core already prepares ability schemas for Abilities REST responses and AI Client function
+declarations with `wp_prepare_json_schema_for_client()`. Keep the canonical WordPress schema stored on
+the ability for server-side use and never replace it with the prepared version. Call the function
+directly only on a copy, when a custom REST endpoint, JavaScript configuration, MCP tool declaration,
+or other external consumer receives a WordPress-style schema.
+Source (July 31, 2026): https://make.wordpress.org/core/2026/07/31/json-schema-preparation-for-client-compatibility-in-wordpress-7-1/
+
+WordPress 7.2 is not released. Its official schedule lists Beta 1 on October 20, 2026 and the final
+release on December 8, 2026; watch it, and do not target it or treat proposals as stable contracts.
+Source: https://make.wordpress.org/core/7-2/
+
+## MCP Adapter 0.7 installation
+
+MCP Adapter 0.7.0 recommends the canonical plugin and deprecates using the adapter as a bundled
+Composer library, so the canonical plugin is the optional integration to prefer for new standalone
+installs, not a hard dependency every ability plugin must require. The Jetpack Autoloader approach is
+legacy bundling guidance for adapters before 0.7 and is now deprecated.
+Source: https://github.com/WordPress/mcp-adapter/releases/tag/v0.7.0
+
+WooCommerce 11.2.0's own composer manifest still declares `wordpress/mcp-adapter` `^0.3.0`, so its
+bundled adapter and the standalone plugin are different version boundaries. Do not blindly replace,
+remove, or deduplicate WooCommerce's bundled adapter; verify the installed WooCommerce and adapter
+versions on the target site first.
+Source: https://github.com/woocommerce/woocommerce/blob/11.2.0/plugins/woocommerce/composer.json
+
+For migration steps, follow the version-pinned upstream guide rather than copying its commands here:
+https://github.com/WordPress/mcp-adapter/blob/v0.7.0/docs/migration/v0.7.0.md
 
 ---
 
@@ -248,14 +332,15 @@ REST endpoint — not a relaxed one:
 
 - **Give every executable ability a real `permission_callback`.** Never register an ability that
   reads or mutates store/customer/payment data with an open or trivially-true permission check. MCP
-  discovery does **not** bypass WordPress permissions — the callback runs on every invocation.
+  discovery does **not** bypass WordPress permissions — the callback runs on every normal-path
+  invocation, and any `wp_pre_execute_ability` short-circuit must enforce equivalent authorization itself.
 - **Default to read-only.** Expose read operations (query orders, read settings, inspect a gateway's
   public configuration) first. Gate any write/mutating ability behind an explicit, vetted capability
   (typically `manage_woocommerce` or `edit_shop_orders`) and treat it like an admin action.
 - **Never expose secrets.** An ability that returns gateway configuration must omit API keys, tokens,
   and other credentials, exactly as you would scrub them from logs and REST responses.
-- **Validate inputs against `input_schema`** and re-validate in `execute_callback` — schema is a
-  contract for discovery, not a substitute for server-side validation.
+- **Declare accurate `input_schema` and `output_schema`.** The normal runtime validates against them
+  (see the WordPress 7.1 section), and domain checks in `execute_callback` supplement that validation.
 - **Match `output_schema` without generic HTML escaping.** JSON values are data. Escape them only when
   a later consumer renders them into HTML, an attribute, a URL, or JavaScript.
 - **Audit log** mutating abilities the same way you log other privileged operations.
@@ -304,6 +389,13 @@ transport, authentication, and custom-server configuration.
 - [ ] A real `permission_callback` on every ability; read-only by default; secrets never returned.
 - [ ] Abilities use the `woocommerce` category (or a registered plugin category) and `meta.mcp.public`
       for the shared WordPress MCP Adapter default server.
+- [ ] On WordPress 7.1+, an explicit channel `false` is retained over `meta.public`, and exposure never
+      substitutes for `permission_callback`; the older `meta.mcp.public` form is kept where older
+      bundled adapters or WordPress releases must be supported.
+- [ ] Canonical server schemas stay registered; only copies are prepared for outbound clients, and
+      `validate_callback`/`sanitize_callback` are not treated as runtime validation.
+- [ ] WooCommerce's bundled `^0.3.0` adapter is not blindly replaced; adapter installation follows the
+      version-pinned upstream guide.
 - [ ] `woocommerce_mcp_include_ability` appears only when deprecated endpoint compatibility is required.
 - [ ] `execute_callback` uses WooCommerce CRUD and validates inputs server-side.
 - [ ] MCP-exposed operations are covered in the pre-release/finalize review.

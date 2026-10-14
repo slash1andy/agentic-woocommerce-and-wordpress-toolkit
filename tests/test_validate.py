@@ -59,9 +59,9 @@ CODEX_MARKETPLACE = {
 
 
 class ValidateRepositoryTest(unittest.TestCase):
-    def run_after(self, mutate=lambda repo: None):
+    def run_after(self, mutate=lambda repo: None, ancestors=()):
         with tempfile.TemporaryDirectory() as tempdir:
-            repo = Path(tempdir) / "repo"
+            repo = Path(tempdir).joinpath(*ancestors, "repo")
             shutil.copytree(
                 ROOT,
                 repo,
@@ -81,6 +81,81 @@ class ValidateRepositoryTest(unittest.TestCase):
 
         self.assertEqual(0, result.returncode, result.stderr)
         self.assertIn("Validation passed.", result.stdout)
+
+    def test_identical_repository_passes_under_hermes_and_git_ancestors(self):
+        for ancestors in ((".hermes",), (".git",), (".hermes", ".git"), ("cache", ".hermes", "work")):
+            with self.subTest(ancestors=ancestors):
+                result = self.run_after(ancestors=ancestors)
+
+                self.assertEqual(0, result.returncode, result.stderr)
+                self.assertIn("Validation passed.", result.stdout)
+
+    def test_ancestor_names_do_not_hide_candidate_violations(self):
+        def unexpected_file(repo):
+            (repo / "docs/internal.env").write_text("API_KEY=fixture\n", encoding="utf-8")
+
+        def private_path(repo):
+            path = repo / "README.md"
+            path.write_text(
+                path.read_text(encoding="utf-8") + "\nSee " + "/" + "Users" + "/someone/notes.\n",
+                encoding="utf-8",
+            )
+
+        for ancestors in ((".hermes",), (".git",)):
+            for mutate, expected in (
+                (unexpected_file, "docs/internal.env: unexpected package path"),
+                (private_path, "private home path"),
+            ):
+                with self.subTest(ancestors=ancestors, mutate=mutate.__name__):
+                    result = self.run_after(mutate, ancestors=ancestors)
+
+                    self.assertNotEqual(0, result.returncode)
+                    self.assertIn(expected, result.stderr)
+                    self.assertNotIn("Traceback", result.stderr)
+
+    def test_unknown_candidate_hermes_paths_are_rejected(self):
+        def secret_env(repo):
+            path = repo / ".hermes/secret.env"
+            path.parent.mkdir(exist_ok=True)
+            path.write_text("API_KEY=fixture\n", encoding="utf-8")
+
+        def unknown_plan(repo):
+            path = repo / ".hermes/plans/unknown-plan.md"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("# Unknown plan\n", encoding="utf-8")
+
+        for mutate, relative in (
+            (secret_env, ".hermes/secret.env"),
+            (unknown_plan, ".hermes/plans/unknown-plan.md"),
+        ):
+            with self.subTest(relative=relative):
+                result = self.run_after(mutate)
+
+                self.assertNotEqual(0, result.returncode)
+                self.assertIn(f"{relative}: unexpected package path", result.stderr)
+                self.assertNotIn("Traceback", result.stderr)
+
+    def test_known_hermes_development_plan_is_scanned(self):
+        plan = ".hermes/plans/2026-08-13_112812-codex-adapter.md"
+
+        def append(text):
+            def mutate(repo):
+                path = repo / plan
+                self.assertTrue(path.is_file(), plan)
+                path.write_text(path.read_text(encoding="utf-8") + text, encoding="utf-8")
+
+            return mutate
+
+        for text, finding in (
+            ("\nSee " + "/" + "Users" + "/someone/notes.\n", "private home path"),
+            ("\ntoken " + "gh" + "p_" + "a" * 24 + "\n", "credential-like value"),
+        ):
+            with self.subTest(finding=finding):
+                result = self.run_after(append(text))
+
+                self.assertNotEqual(0, result.returncode)
+                self.assertIn(f"{plan}:", result.stderr)
+                self.assertIn(finding, result.stderr)
 
     def test_missing_manifest_or_component_fails(self):
         for relative in (".claude-plugin/plugin.json", "agents/woocommerce-ux-reviewer.md"):
@@ -157,6 +232,21 @@ class ValidateRepositoryTest(unittest.TestCase):
                     result.stderr,
                     r"skills must be './skills/'|exact manifest contract|duplicate plugin entries|path must not escape the repository root|path must be a safe relative repository path",
                 )
+
+    def test_codex_marketplace_nonstring_plugin_names_fail_without_traceback(self):
+        for label, bad_name in (("array", ["a"]), ("object", {"a": "b"})):
+            def mutate(repo, bad_name=bad_name):
+                path = repo / ".agents/plugins/marketplace.json"
+                data = json.loads(path.read_text(encoding="utf-8"))
+                data["plugins"][0]["name"] = bad_name
+                path.write_text(json.dumps(data), encoding="utf-8")
+
+            with self.subTest(name_type=label):
+                result = self.run_after(mutate)
+                self.assertNotEqual(0, result.returncode)
+                self.assertIn(".agents/plugins/marketplace.json", result.stderr)
+                self.assertNotIn("Traceback", result.stderr)
+                self.assertNotIn("TypeError", result.stderr)
 
     def test_codex_manifest_forbidden_fields_fail(self):
         def forbidden_plugin_field(repo):
@@ -450,6 +540,75 @@ class ValidateRepositoryTest(unittest.TestCase):
         result = self.run_after(add_comments)
         self.assertEqual(0, result.returncode, result.stderr)
 
+    def run_with_finalize_description_block(self, header, first, second):
+        def rewrite(repo):
+            path = repo / "skills/woocommerce-finalize/SKILL.md"
+            text = path.read_text(encoding="utf-8")
+            start = text.index("description: >\n")
+            end = text.index("disable-model-invocation:")
+            path.write_text(
+                text[:start] + f"description: {header}\n{first}\n{second}\n" + text[end:],
+                encoding="utf-8",
+            )
+
+        return self.run_after(rewrite)
+
+    def test_explicit_block_indentation_underflow_fails(self):
+        for header in (">9", "|9", ">3", "|3", ">+4", "|-5", ">6+", "|7-"):
+            with self.subTest(header=header):
+                result = self.run_with_finalize_description_block(
+                    header, "  Invoke explicitly for a pre-release audit.", "  Use repository evidence."
+                )
+                self.assertNotEqual(0, result.returncode)
+                self.assertIn("malformed frontmatter block description", result.stderr)
+
+    def test_implicit_block_indentation_underflow_fails(self):
+        for header in (">", "|", ">-", "|+"):
+            with self.subTest(header=header):
+                result = self.run_with_finalize_description_block(
+                    header, "    Invoke explicitly for a pre-release audit.", "  Use repository evidence."
+                )
+                self.assertNotEqual(0, result.returncode)
+                self.assertIn("malformed frontmatter block description", result.stderr)
+
+    def test_healthy_implicit_and_explicit_block_indentation_pass(self):
+        cases = (
+            (">", "  Invoke explicitly for a pre-release audit.", "  Use repository evidence."),
+            ("|-", "    Invoke explicitly for a pre-release audit.", "    Use repository evidence."),
+            (">2", "  Invoke explicitly for a pre-release audit.", "  Use repository evidence."),
+            ("|2-", "  Invoke explicitly for a pre-release audit.", "    Use repository evidence."),
+            (">+2", "   Invoke explicitly for a pre-release audit.", "  Use repository evidence."),
+        )
+        for header, first, second in cases:
+            with self.subTest(header=header):
+                result = self.run_with_finalize_description_block(header, first, second)
+                self.assertEqual(0, result.returncode, result.stderr)
+
+    def test_block_leading_blank_line_indentation_matrix(self):
+        first = "  Invoke explicitly for a pre-release audit."
+        second = "  Use repository evidence."
+        cases = (
+            (">", "    \n" + first, second, False),
+            ("|", "    \n" + first, second, False),
+            (">-", "    \n" + first, second, False),
+            ("|+", "    \n" + first, second, False),
+            (">2", "    \n" + first, second, True),
+            ("|2", "    \n" + first, second, True),
+            (">", "  \n" + first, second, True),
+            ("|", " \n" + first, second, True),
+            (">", "\n" + first, second, True),
+            (">", first, second + "\n    ", True),
+            ("|2", first, second + "\n    ", True),
+        )
+        for header, lead_and_first, tail, should_pass in cases:
+            with self.subTest(header=header, lead=lead_and_first, tail=tail):
+                result = self.run_with_finalize_description_block(header, lead_and_first, tail)
+                if should_pass:
+                    self.assertEqual(0, result.returncode, result.stderr)
+                else:
+                    self.assertNotEqual(0, result.returncode)
+                    self.assertIn("malformed frontmatter block description", result.stderr)
+
     def test_valid_plain_scalar_trailing_apostrophe_passes(self):
         def trailing_apostrophe(repo):
             path = repo / "agents/woocommerce-ux-reviewer.md"
@@ -464,6 +623,62 @@ class ValidateRepositoryTest(unittest.TestCase):
 
         result = self.run_after(trailing_apostrophe)
         self.assertEqual(0, result.returncode, result.stderr)
+
+    def test_valid_plain_scalar_embedded_quotes_with_inline_comment_pass(self):
+        for value in (
+            "Review Woo's shopper UX. # Woo only",
+            'Review the "checkout" UX. # Woo only',
+            "Review Woo's \"checkout\" UX.\t# Woo only",
+        ):
+            def embedded_quote(repo, replacement=value):
+                path = repo / "agents/woocommerce-ux-reviewer.md"
+                path.write_text(
+                    path.read_text(encoding="utf-8").replace(
+                        "description: Review WooCommerce shopper and merchant UX across storefront, checkout, payment, and admin flows.",
+                        f"description: {replacement}",
+                        1,
+                    ),
+                    encoding="utf-8",
+                )
+
+            with self.subTest(value=value):
+                result = self.run_after(embedded_quote)
+                self.assertEqual(0, result.returncode, result.stderr)
+
+    def test_quoted_scalar_internal_hash_is_preserved_and_only_trailing_comment_is_stripped(self):
+        spec = importlib.util.spec_from_file_location("validator", ROOT / "scripts/validate.py")
+        if spec is None or spec.loader is None:
+            self.fail("validator module must be loadable")
+        validator = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(validator)
+
+        cases = (
+            ("'Review Woo # shopper UX.'", "'Review Woo # shopper UX.'"),
+            ("'Review Woo''s # shopper UX.' # real comment", "'Review Woo''s # shopper UX.'"),
+            ('"Review Woo # shopper UX."', '"Review Woo # shopper UX."'),
+            ('"Review \\"Woo\\" # shopper UX." # real comment', '"Review \\"Woo\\" # shopper UX."'),
+        )
+        for value, expected in cases:
+            with self.subTest(value=value):
+                self.assertEqual(expected, validator.strip_yaml_comment(value))
+
+        original = (
+            "description: Review WooCommerce shopper and merchant UX across storefront, "
+            "checkout, payment, and admin flows."
+        )
+        for value in (cases[0][0], cases[1][0], cases[3][0]):
+            def quoted_description(repo, replacement=value):
+                path = repo / "agents/woocommerce-ux-reviewer.md"
+                path.write_text(
+                    path.read_text(encoding="utf-8").replace(
+                        original, f"description: {replacement}", 1
+                    ),
+                    encoding="utf-8",
+                )
+
+            with self.subTest(caller_value=value):
+                result = self.run_after(quoted_description)
+                self.assertEqual(0, result.returncode, result.stderr)
 
     def test_frontmatter_description_must_be_a_nonempty_string(self):
         original = (
@@ -1083,6 +1298,25 @@ class ValidateRepositoryTest(unittest.TestCase):
                 self.assertIn(f"{relative}: invalid UTF-8", result.stderr)
                 self.assertNotIn("Traceback", result.stderr)
 
+    def test_required_json_documents_must_be_objects_even_when_null(self):
+        for relative in (
+            ".claude-plugin/plugin.json",
+            ".claude-plugin/marketplace.json",
+            ".codex-plugin/plugin.json",
+            ".agents/plugins/marketplace.json",
+            "skills/woocommerce-plugin-dev/evals/evals.json",
+            "skills/woocommerce-finalize/evals/evals.json",
+            "skills/woocommerce-upgrade-safety/evals/evals.json",
+        ):
+            with self.subTest(relative=relative):
+                def null_document(repo, path=relative):
+                    (repo / path).write_text("null\n", encoding="utf-8")
+
+                result = self.run_after(null_document)
+                self.assertNotEqual(0, result.returncode)
+                self.assertIn(relative, result.stderr)
+                self.assertNotIn("Traceback", result.stderr)
+
     def test_diff_fixture_paths_cannot_escape_the_validation_directory(self):
         spec = importlib.util.spec_from_file_location("validator", ROOT / "scripts/validate.py")
         if spec is None or spec.loader is None:
@@ -1285,6 +1519,106 @@ new file mode 100644
 
         self.assertNotEqual(0, result.returncode)
         self.assertIn("broken cross-reference", result.stderr)
+
+    def test_relative_reference_routes_are_validated_without_claude_variable(self):
+        def strip_variable(repo):
+            for skill in (repo / "skills").glob("*/SKILL.md"):
+                skill.write_text(
+                    skill.read_text(encoding="utf-8").replace("${CLAUDE_SKILL_DIR}/", ""),
+                    encoding="utf-8",
+                )
+
+        def break_relative(repo):
+            strip_variable(repo)
+            path = repo / "skills/woocommerce-finalize/SKILL.md"
+            text = path.read_text(encoding="utf-8")
+            broken = text.replace(
+                "../woocommerce-plugin-dev/references/security.md",
+                "../woocommerce-plugin-dev/references/missing.md",
+            )
+            self.assertNotEqual(text, broken)
+            path.write_text(broken, encoding="utf-8")
+
+        result = self.run_after(strip_variable)
+        self.assertEqual(0, result.returncode, result.stderr)
+
+        result = self.run_after(break_relative)
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("broken cross-reference", result.stderr)
+        self.assertIn("missing.md", result.stderr)
+
+    def test_finalize_and_upgrade_require_a_relative_reference_route(self):
+        standalone = re.compile(
+            r"(?<!\}/)\.\./woocommerce-plugin-dev/references/[A-Za-z0-9_.-]+\.md"
+        )
+        for name in ("woocommerce-finalize", "woocommerce-upgrade-safety"):
+            def remove_relative(repo, skill=name):
+                path = repo / "skills" / skill / "SKILL.md"
+                text = path.read_text(encoding="utf-8")
+                self.assertRegex(text, standalone)
+                path.write_text(standalone.sub("references-removed", text), encoding="utf-8")
+
+            with self.subTest(skill=name):
+                result = self.run_after(remove_relative)
+
+                self.assertNotEqual(0, result.returncode)
+                self.assertIn(f"skills/{name}/SKILL.md", result.stderr)
+                self.assertRegex(result.stderr, r"(?i)relative")
+
+    def test_every_skill_requires_native_explicit_invocation_policy(self):
+        skills = (
+            "woocommerce-plugin-dev",
+            "woocommerce-finalize",
+            "woocommerce-upgrade-safety",
+        )
+
+        def edit_policy(skill, transform):
+            def mutate(repo):
+                path = repo / "skills" / skill / "agents/openai.yaml"
+                self.assertTrue(path.is_file(), f"{path.relative_to(repo)} must exist")
+                text = path.read_text(encoding="utf-8")
+                changed = transform(text)
+                self.assertNotEqual(text, changed)
+                path.write_text(changed, encoding="utf-8")
+
+            return mutate
+
+        def delete_file(skill):
+            def mutate(repo):
+                path = repo / "skills" / skill / "agents/openai.yaml"
+                self.assertTrue(path.is_file(), f"{path.relative_to(repo)} must exist")
+                path.unlink()
+
+            return mutate
+
+        key = r"allow_implicit_invocation:[ \t]*false"
+        variants = {
+            "true": lambda text: re.sub(key, "allow_implicit_invocation: true", text),
+            "quoted-string": lambda text: re.sub(key, 'allow_implicit_invocation: "false"', text),
+            "misspelled-key": lambda text: re.sub(key, "allow_implicit_invocations: false", text),
+            "missing-policy": lambda text: re.sub(
+                r"(?m)^policy:[ \t]*\n[ \t]+allow_implicit_invocation:.*\n?", "", text
+            ),
+            "empty-file": lambda text: "",
+        }
+
+        for skill in skills:
+            with self.subTest(skill=skill, case="missing-file"):
+                result = self.run_after(delete_file(skill))
+
+                self.assertNotEqual(0, result.returncode)
+                self.assertIn(f"skills/{skill}/agents/openai.yaml", result.stderr)
+                self.assertNotIn("Traceback", result.stderr)
+        for case, transform in variants.items():
+            with self.subTest(skill="woocommerce-finalize", case=case):
+                result = self.run_after(edit_policy("woocommerce-finalize", transform))
+
+                self.assertNotEqual(0, result.returncode)
+                self.assertIn(
+                    "skills/woocommerce-finalize/agents/openai.yaml", result.stderr
+                )
+                self.assertIn("allow_implicit_invocation", result.stderr)
+                self.assertNotIn("Traceback", result.stderr)
 
     def test_project_specific_reference_fails(self):
         def add_project_reference(repo):

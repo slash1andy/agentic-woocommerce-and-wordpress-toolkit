@@ -21,9 +21,12 @@ and approves the exact scope.
 
 ## Foundation references
 
-- **`${CLAUDE_SKILL_DIR}/../woocommerce-plugin-dev/references/woocommerce-apis.md`** -- HPOS, CRUD, data stores, Store API, and payments
-- **`${CLAUDE_SKILL_DIR}/../woocommerce-plugin-dev/references/security.md`** -- input, storage, webhook, payment, and secret boundaries
-- **`${CLAUDE_SKILL_DIR}/../woocommerce-plugin-dev/references/plugin-architecture.md`** -- lifecycle, compatibility, migration, and uninstall boundaries
+Each reference has a portable path relative to this skill's directory. Claude Code also expands the
+`${CLAUDE_SKILL_DIR}` form of the same path.
+
+- **`../woocommerce-plugin-dev/references/woocommerce-apis.md`** (Claude: `${CLAUDE_SKILL_DIR}/../woocommerce-plugin-dev/references/woocommerce-apis.md`) -- HPOS, CRUD, data stores, Store API, and payments
+- **`../woocommerce-plugin-dev/references/security.md`** (Claude: `${CLAUDE_SKILL_DIR}/../woocommerce-plugin-dev/references/security.md`) -- input, storage, webhook, payment, and secret boundaries
+- **`../woocommerce-plugin-dev/references/plugin-architecture.md`** (Claude: `${CLAUDE_SKILL_DIR}/../woocommerce-plugin-dev/references/plugin-architecture.md`) -- lifecycle, compatibility, migration, and uninstall boundaries
 
 ## When to run
 
@@ -42,6 +45,15 @@ option versions, persistent keys/formats, hooks/signatures, feature declarations
 requirements, background jobs, payment/token/provider flows, and merchant actions. Tie every later
 claim to this delta and the installed compatibility targets.
 
+Reading test assertions does not prove the tests pass; report a test as passing only from run evidence.
+When installed source is absent, migration and external-contract inventories are unknown, not empty.
+
+Claims about what core order save does, including webhook delivery or date fields, need versioned source
+for the installed release or run evidence. Do not state them unconditionally or without that evidence.
+Repeated save calls are not repeated side effects: a repeated save call does not prove a repeated side effect.
+Before claiming an effect occurred, such as a webhook delivery or date change, require the actual installed
+version, source, or run evidence. You may conclude a repeated side effect when that evidence shows it.
+
 ## 2. Migration and persistence safety
 
 - Gate schema/data work by durable version or progress state; make setup and every batch idempotent.
@@ -58,6 +70,28 @@ claim to this delta and the installed compatibility targets.
 Require idempotency, replay, interruption-resume, and concurrent-growth tests. Interrupt before and
 after progress commits, rerun completed batches, insert records while work advances, and prove no skipped or duplicate records or side effects.
 
+For pagination or concurrency claims, give an explicit interleaving trace. Insertion overlap alone does not
+prove a skipped record, and duplicate processing of the current page does not prove a duplicate on a later
+page; distinguish each outcome with its own trace. Overlap among existing rows is a different case from a
+new arrival: insertion overlap can leave new rows that land before the cursor unvisited even when existing
+rows overlap correctly. Trace the claimed outcome, and distinguish a closed population (no new rows during
+the run) from a growing population before concluding either safe or unsafe; a source-proven conclusion
+either way is permitted.
+
+Moving a checkpoint or reordering a commit addresses a specific named crash window; it does not prove overall
+migration safety. Name each remaining invariant still unproven, such as idempotency, order, visibility, and
+concurrency. Headings, summaries, and verdict lines need the same evidence qualification as the body; a
+source-proven positive may be stated plainly, but an unproven one may not be stronger in a heading than in the text.
+
+A lost checkpoint does not mean unmigrated rows are unidentifiable. Before claiming no recovery, inspect the
+actual durable per-record migration markers and the remaining rows, then do candidate reconciliation against
+them. Marker presence is not proof of exactly-once safety: state recovery feasibility with that qualification
+and keep the exactly-once effects unproven unless the source shows them. A no-recovery claim the evidence
+supports is still permitted.
+Separate a skipped ordinary forward continuation from permanent loss or no retry: a skip in ordinary
+continuation does not prove permanent loss, because reconciliation or reset can remain possible. Treat that
+feasibility as unknown until proof. When the actual source proves permanent loss, you may conclude it.
+
 For settings changes, verify renamed/defaulted values are available before new readers run, old values
 are retained for the stated transition, and secrets are never echoed, logged, or replaced silently.
 
@@ -72,6 +106,14 @@ review.
 Classic checkout and Blocks/Store API are separate. Recheck only claimed surfaces, including session,
 cart, token, and payment-method continuity.
 
+When the target moves to WooCommerce 11.2 or later and uses the affected surface, also check the
+version-scoped changes in `../woocommerce-plugin-dev/references/woocommerce-apis.md`: a missing Cart-Token
+fails closed, date-only product queries use the store timezone, the legacy date-only order change is
+kept (orders only on stores still keeping orders as posts), and removed `wc/agentic/v1` and
+abandoned-cart recovery have no replacement. HPOS being unaffected by this release does not prove UTC
+interpretation or that results differ from legacy storage; that comparison stays unverified until a
+versioned source or boundary test shows it. Do not raise a global platform minimum for these.
+
 ## 4. Subscriptions contracts
 
 Treat Subscriptions hooks and callbacks as versioned licensed contracts. Verify a renewal or lifecycle
@@ -81,6 +123,10 @@ callback timing, and expected result for that version.
 If that source is unavailable, mark the contract blocked/unknown. Do not guess from memory, public
 snippets, another version, or similarly named hooks. The release remains unverified for that
 Subscriptions surface until authorized evidence is available.
+
+To unblock, require the pair together: authorized installed licensed source AND its exact version.
+Diffs and staging or runtime traces are supplementary only; they never replace source and version for
+hook or signature verification. Request no secrets or customer data.
 
 ## 5. Hooks, features, dependencies, and recovery
 
@@ -94,6 +140,13 @@ Subscriptions surface until authorized evidence is available.
   recovery, and merchant communication before release.
 - Confirm auto-update behavior does not depend on a merchant reading release notes first; surface any
   required action safely in-product.
+
+When an endpoint or feature is removed with no replacement, do not conclude that rollback is the only
+recovery. Distinguish three options: restoring old behavior by a verified rollback or backup; mitigation
+that disables the feature or is fail-closed; and a separately designed supported flow. Treat each option's
+feasibility as unverified until source or tested recovery evidence shows it; do not name a replacement
+endpoint or call any option safe or available without that evidence. Rollback alone does not restore
+dropped data, so confirm what was dropped and whether a tested backup covers it.
 
 ## 6. Risk and report
 
