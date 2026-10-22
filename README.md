@@ -42,8 +42,9 @@ are narrower:
   (`Read, Grep, Glob`), which restricts the agent to read-only tools; its natural-language
   instructions are not a universal sandbox.
 - Each skill sets `disable-model-invocation: false`, so Claude Code may load it when a task matches.
-  Each also ships a native `agents/openai.yaml` policy with `allow_implicit_invocation: false`, so
-  Codex invocation stays explicit. Neither setting enforces write or release approval.
+  Each also ships a native `agents/openai.yaml` policy with `allow_implicit_invocation: true`, so
+  Codex may select it too. Hermes loads the skills as text and selects them from their descriptions.
+  None of these settings enforces write or release approval.
 - Hermes Agent loads the skills as text and adds no toolkit-specific enforcement.
 
 ## Why this fork

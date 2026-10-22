@@ -68,7 +68,7 @@ SKILLS = (
 )
 AGENTS = ("woocommerce-ux-reviewer",)
 DEVELOPMENT_ONLY_FILES = {Path(".hermes/plans/2026-08-13_112812-codex-adapter.md")}
-CODEX_POLICY_LINES = ["policy:", "  allow_implicit_invocation: false"]
+CODEX_POLICY_LINES = ["policy:", "  allow_implicit_invocation: true"]
 PACKAGE_FILES = {
     Path(value)
     for value in (
@@ -490,7 +490,7 @@ def validate_codex_policy(relative, errors):
     if text is not None and text.splitlines() != CODEX_POLICY_LINES:
         errors.append(
             f"{relative}: must contain exactly the two-line policy with "
-            "allow_implicit_invocation: false"
+            "allow_implicit_invocation: true"
         )
 
 

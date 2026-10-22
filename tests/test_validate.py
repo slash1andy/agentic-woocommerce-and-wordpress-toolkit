@@ -1591,11 +1591,11 @@ new file mode 100644
 
             return mutate
 
-        key = r"allow_implicit_invocation:[ \t]*false"
+        key = r"allow_implicit_invocation:[ \t]*true"
         variants = {
-            "true": lambda text: re.sub(key, "allow_implicit_invocation: true", text),
-            "quoted-string": lambda text: re.sub(key, 'allow_implicit_invocation: "false"', text),
-            "misspelled-key": lambda text: re.sub(key, "allow_implicit_invocations: false", text),
+            "false": lambda text: re.sub(key, "allow_implicit_invocation: false", text),
+            "quoted-string": lambda text: re.sub(key, 'allow_implicit_invocation: "true"', text),
+            "misspelled-key": lambda text: re.sub(key, "allow_implicit_invocations: true", text),
             "missing-policy": lambda text: re.sub(
                 r"(?m)^policy:[ \t]*\n[ \t]+allow_implicit_invocation:.*\n?", "", text
             ),

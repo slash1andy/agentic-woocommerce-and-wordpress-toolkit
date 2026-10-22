@@ -34,7 +34,7 @@ Invoke `/woocommerce-plugin-dev` for implementation work. For finalization or up
 
 When `woocommerce-plugin-dev` is active under Hermes, load `references/hermes-tools.md` and use the native tool routing documented there. Tool availability never expands approval scope: repository writes, installs, authentication, uploads, publication, destructive actions, and live-store mutations retain their own approval boundaries.
 
-Explicit-invocation and approval requirements in these skills are instructions to the model; Hermes loads them as skill text and this toolkit does not add a Hermes-side control that enforces them. The read-only UX reviewer agent is not part of the Hermes path.
+Approval requirements in these skills are instructions to the model; Hermes loads them as skill text and this toolkit does not add a Hermes-side control that enforces them. The read-only UX reviewer agent is not part of the Hermes path.
 
 ## Updating
 
