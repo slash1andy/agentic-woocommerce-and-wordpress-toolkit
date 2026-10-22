@@ -1,9 +1,9 @@
 ---
 name: woocommerce-upgrade-safety
 description: >
-  Invoke explicitly when a WooCommerce release changes persisted data, compatibility contracts,
+  Use when a WooCommerce release changes persisted data, compatibility contracts,
   payment continuity, hooks, dependencies, or recovery behavior for existing installations.
-disable-model-invocation: true
+disable-model-invocation: false
 ---
 
 # WooCommerce upgrade safety review

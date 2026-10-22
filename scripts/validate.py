@@ -648,10 +648,10 @@ def validate_frontmatter(relative, expected_name, errors, require_explicit=False
     if fields.get("name") != expected_name:
         errors.append(f"{relative}: frontmatter name must match {expected_name}")
     if require_explicit and (
-        fields.get("disable-model-invocation") != "true"
+        fields.get("disable-model-invocation") != "false"
         or "disable-model-invocation" not in plain_fields
     ):
-        errors.append(f"{relative}: disable-model-invocation must be true")
+        errors.append(f"{relative}: disable-model-invocation must be false")
     if require_explicit and set(fields) != {"name", "description", "disable-model-invocation"}:
         errors.append(
             f"{relative}: frontmatter must contain only name, description, and disable-model-invocation"

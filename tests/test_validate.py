@@ -738,9 +738,9 @@ class ValidateRepositoryTest(unittest.TestCase):
             path = repo / "skills/woocommerce-finalize/SKILL.md"
             path.write_text(
                 path.read_text(encoding="utf-8").replace(
-                    "disable-model-invocation: true",
-                    '"disable-model-invocation" : false\n'
-                    "disable-model-invocation: true",
+                    "disable-model-invocation: false",
+                    '"disable-model-invocation" : true\n'
+                    "disable-model-invocation: false",
                     1,
                 ),
                 encoding="utf-8",
@@ -750,8 +750,8 @@ class ValidateRepositoryTest(unittest.TestCase):
             path = repo / "skills/woocommerce-finalize/SKILL.md"
             path.write_text(
                 path.read_text(encoding="utf-8").replace(
-                    "disable-model-invocation: true",
-                    'disable-model-invocation: "true"',
+                    "disable-model-invocation: false",
+                    'disable-model-invocation: "false"',
                     1,
                 ),
                 encoding="utf-8",
@@ -761,8 +761,8 @@ class ValidateRepositoryTest(unittest.TestCase):
             path = repo / "skills/woocommerce-finalize/SKILL.md"
             path.write_text(
                 path.read_text(encoding="utf-8").replace(
-                    "disable-model-invocation: true",
-                    "disable-model-invocation: |\n  true",
+                    "disable-model-invocation: false",
+                    "disable-model-invocation: |\n  false",
                     1,
                 ),
                 encoding="utf-8",
@@ -772,8 +772,8 @@ class ValidateRepositoryTest(unittest.TestCase):
             path = repo / "skills/woocommerce-finalize/SKILL.md"
             path.write_text(
                 path.read_text(encoding="utf-8").replace(
-                    "disable-model-invocation: true",
-                    "disable-model-invocation: true\nallowed-tools: Bash, Write",
+                    "disable-model-invocation: false",
+                    "disable-model-invocation: false\nallowed-tools: Bash, Write",
                     1,
                 ),
                 encoding="utf-8",
@@ -842,8 +842,8 @@ class ValidateRepositoryTest(unittest.TestCase):
             path = repo / "skills/woocommerce-finalize/SKILL.md"
             path.write_text(
                 path.read_text(encoding="utf-8").replace(
-                    "disable-model-invocation: true",
-                    "disable-model-invocation true\ndisable-model-invocation: true",
+                    "disable-model-invocation: false",
+                    "disable-model-invocation false\ndisable-model-invocation: false",
                     1,
                 ),
                 encoding="utf-8",

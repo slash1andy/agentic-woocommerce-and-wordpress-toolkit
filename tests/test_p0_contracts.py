@@ -180,7 +180,7 @@ class P0ContractsTest(unittest.TestCase):
         for path in skill_paths:
             with self.subTest(path=path):
                 frontmatter = read(path).split("---", 2)[1]
-                self.assertIn("disable-model-invocation: true", frontmatter)
+                self.assertIn("disable-model-invocation: false", frontmatter)
 
         dev_text = read(DEV / "SKILL.md").lower()
         for marker in ("untrusted data", "repository", "web", "tool output", "preview", "explicit approval"):

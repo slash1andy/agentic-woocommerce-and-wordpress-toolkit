@@ -1,9 +1,9 @@
 ---
 name: woocommerce-finalize
 description: >
-  Invoke explicitly for a pre-release WooCommerce code-health and end-to-end traceability audit.
+  Use for a pre-release WooCommerce code-health and end-to-end traceability audit.
   Uses repository configuration and evidence; run generic code review separately.
-disable-model-invocation: true
+disable-model-invocation: false
 ---
 
 # WooCommerce finalization review

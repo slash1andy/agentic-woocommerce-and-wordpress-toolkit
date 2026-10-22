@@ -41,9 +41,9 @@ are narrower:
 - The UX reviewer agent is Claude Code-only. Claude Code enforces its host-native tool allowlist
   (`Read, Grep, Glob`), which restricts the agent to read-only tools; its natural-language
   instructions are not a universal sandbox.
-- Each skill sets `disable-model-invocation: true` for Claude Code and ships a native
-  `agents/openai.yaml` policy with `allow_implicit_invocation: false` for Codex. These keep
-  invocation explicit but do not enforce write or release approval.
+- Each skill sets `disable-model-invocation: false`, so Claude Code may load it when a task matches.
+  Each also ships a native `agents/openai.yaml` policy with `allow_implicit_invocation: false`, so
+  Codex invocation stays explicit. Neither setting enforces write or release approval.
 - Hermes Agent loads the skills as text and adds no toolkit-specific enforcement.
 
 ## Why this fork
@@ -84,7 +84,7 @@ native tool routing, discovery verification, and update behavior.
 
 ## Usage
 
-All three skills require explicit invocation. Plugin skills use Claude Code's `plugin-name:skill-name` namespace:
+Claude Code may load the skills when a task matches, and you can always invoke them explicitly. Plugin skills use Claude Code's `plugin-name:skill-name` namespace:
 
 ```text
 /claude-woocommerce-toolkit:woocommerce-plugin-dev Build a loyalty-points extension
