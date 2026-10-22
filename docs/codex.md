@@ -14,11 +14,11 @@ and `woocommerce-upgrade-safety` are exposed through Codex.
 - The Codex adapter does not expose the UX reviewer skill; that capability remains in the
   Claude-only adapter.
 
-## Explicit invocation policy
+## Invocation policy
 
 Each skill ships `agents/openai.yaml` with the minimal native policy
-`allow_implicit_invocation: false` under `policy:`, so Codex does not select the skill without an
-explicit request. The repository validator accepts only that exact two-line file.
+`allow_implicit_invocation: true` under `policy:`, so Codex may select the skill when a task matches
+and you can still invoke it explicitly. The repository validator accepts only that exact two-line file.
 
 This metadata controls skill discovery and selection. It is not approval enforcement: the approval
 gates in these skills are instructions to the model, and Codex does not enforce them. Keep

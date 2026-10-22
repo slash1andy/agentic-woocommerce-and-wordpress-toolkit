@@ -48,7 +48,7 @@ Then invoke a packaged skill by its namespaced command:
 ```
 
 The skill should begin repository-first discovery and stop at its write-approval gate. Invoke the
-other explicit-only skills with:
+other skills explicitly with:
 
 ```text
 /claude-woocommerce-toolkit:woocommerce-finalize Review this release candidate

@@ -1,9 +1,9 @@
 ---
 name: woocommerce-plugin-dev
 description: >
-  Invoke explicitly before creating, scaffolding, or changing a WooCommerce plugin or extension.
+  Use before creating, scaffolding, or changing a WooCommerce plugin or extension.
   Uses the target repository and actual risk surface to choose architecture, security, and tests.
-disable-model-invocation: true
+disable-model-invocation: false
 ---
 
 # WooCommerce plugin development

@@ -17,8 +17,8 @@ CANONICAL_SKILLS = (
 )
 
 
-class CodexExplicitInvocationPolicyTest(unittest.TestCase):
-    def test_every_skill_declares_native_explicit_only_policy(self):
+class CodexInvocationPolicyTest(unittest.TestCase):
+    def test_every_skill_declares_native_implicit_invocation_policy(self):
         for skill in CANONICAL_SKILLS:
             with self.subTest(skill=skill):
                 path = ROOT / "skills" / skill / "agents/openai.yaml"
@@ -27,10 +27,10 @@ class CodexExplicitInvocationPolicyTest(unittest.TestCase):
                 text = path.read_text(encoding="utf-8")
                 self.assertRegex(
                     text,
-                    r"(?m)^policy:[ \t]*\n[ \t]+allow_implicit_invocation:[ \t]*false[ \t]*(?:#.*)?$",
+                    r"(?m)^policy:[ \t]*\n[ \t]+allow_implicit_invocation:[ \t]*true[ \t]*(?:#.*)?$",
                 )
                 self.assertEqual(1, text.count("allow_implicit_invocation"))
-                self.assertNotRegex(text, r"(?i)allow_implicit_invocation:[ \t]*[\"']?true")
+                self.assertNotRegex(text, r"(?i)allow_implicit_invocation:[ \t]*[\"']?false")
 
     def test_codex_guide_documents_native_policy_and_unenforced_instructions(self):
         codex_docs = (ROOT / "docs/codex.md").read_text(encoding="utf-8")

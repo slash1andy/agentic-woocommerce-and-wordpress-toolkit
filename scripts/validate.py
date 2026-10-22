@@ -68,7 +68,7 @@ SKILLS = (
 )
 AGENTS = ("woocommerce-ux-reviewer",)
 DEVELOPMENT_ONLY_FILES = {Path(".hermes/plans/2026-08-13_112812-codex-adapter.md")}
-CODEX_POLICY_LINES = ["policy:", "  allow_implicit_invocation: false"]
+CODEX_POLICY_LINES = ["policy:", "  allow_implicit_invocation: true"]
 PACKAGE_FILES = {
     Path(value)
     for value in (
@@ -490,7 +490,7 @@ def validate_codex_policy(relative, errors):
     if text is not None and text.splitlines() != CODEX_POLICY_LINES:
         errors.append(
             f"{relative}: must contain exactly the two-line policy with "
-            "allow_implicit_invocation: false"
+            "allow_implicit_invocation: true"
         )
 
 
@@ -648,10 +648,10 @@ def validate_frontmatter(relative, expected_name, errors, require_explicit=False
     if fields.get("name") != expected_name:
         errors.append(f"{relative}: frontmatter name must match {expected_name}")
     if require_explicit and (
-        fields.get("disable-model-invocation") != "true"
+        fields.get("disable-model-invocation") != "false"
         or "disable-model-invocation" not in plain_fields
     ):
-        errors.append(f"{relative}: disable-model-invocation must be true")
+        errors.append(f"{relative}: disable-model-invocation must be false")
     if require_explicit and set(fields) != {"name", "description", "disable-model-invocation"}:
         errors.append(
             f"{relative}: frontmatter must contain only name, description, and disable-model-invocation"
