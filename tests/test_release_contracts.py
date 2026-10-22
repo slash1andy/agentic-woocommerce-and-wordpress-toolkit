@@ -13,7 +13,7 @@ SKILLS = (
 )
 CODEX_PLUGIN = {
     "name": "agentic-woocommerce-toolkit",
-    "version": "1.1.1",
+    "version": "1.1.2",
     "description": "Approval-gated WooCommerce and WordPress skills for plugin development, release review, and upgrade safety.",
     "author": {
         "name": "Andrew Wikel",
